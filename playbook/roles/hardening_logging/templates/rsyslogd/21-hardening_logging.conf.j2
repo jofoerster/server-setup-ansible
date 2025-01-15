@@ -1,0 +1,15 @@
+# {{ ansible_managed }} - {{ template_destpath }}
+kern.info               @{{ hardening_logging_proxy_ip }}:{{ hardening_logging_proxy_port }}
+daemon.info             @{{ hardening_logging_proxy_ip }}:{{ hardening_logging_proxy_port }}
+auth.info               @{{ hardening_logging_proxy_ip }}:{{ hardening_logging_proxy_port }}
+authpriv.notice         @{{ hardening_logging_proxy_ip }}:{{ hardening_logging_proxy_port }}
+user.info               @{{ hardening_logging_proxy_ip }}:{{ hardening_logging_proxy_port }}
+local6.info             @{{ hardening_logging_proxy_ip }}:{{ hardening_logging_proxy_port }}
+*.emerg                 @{{ hardening_logging_proxy_ip }}:{{ hardening_logging_proxy_port }}
+
+local6.none             {{ hardening_logging_messages_file }}
+
+$ModLoad immark
+$MarkMessagePeriod  900
+$ActionwriteAllMarkMessages on
+:msg,contains,"MARK" @{{ hardening_logging_proxy_ip }}:{{ hardening_logging_proxy_port }}

@@ -1,0 +1,19 @@
+---
+
+- name: "Req-26 gather /etc/passwd entries."  # noqa: name[template]
+  ansible.builtin.getent:
+    database: passwd
+  register: hardening_linux_passwd
+
+- name: "Req-26 System accounts must be non-login."  # noqa: name[template]
+  ansible.builtin.user:
+    name: "{{ item.key }}"
+    shell: "/usr/sbin/nologin"
+    password: '*'
+    createhome: false
+  no_log: true
+  loop: "{{ hardening_linux_passwd.ansible_facts.getent_passwd | dict2items }}"
+  when:
+    - item.value.1 | int <= hardening_linux_uid_max
+    - item.value.5 not in ['/usr/bin/false', '/bin/false', '/usr/sbin/nologin', '/sbin/nologin']
+    - item.key not in ['root', 'sync', 'shutdown', 'halt']

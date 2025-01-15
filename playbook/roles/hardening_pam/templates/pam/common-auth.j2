@@ -1,0 +1,15 @@
+#%PAM-1.0
+#
+# {{ ansible_managed }} - {{ template_destpath }}
+# Authentication-related modules common to all services
+#
+
+auth    sufficient                  pam_sss.so          forward_pass
+
+# Req-58
+auth    required                    pam_faillock.so     preauth silent even_deny_root audit deny=5 unlock_time=600
+auth    [success=1 default=bad]     pam_unix.so         try_first_pass
+auth    [default=die]               pam_faillock.so     authfail silent even_deny_root audit deny=5 unlock_time=600
+auth    optional                    pam_cap.so
+auth    sufficient                  pam_faillock.so     authsucc silent even_deny_root audit deny=5 unlock_time=600
+auth    required                    pam_deny.so

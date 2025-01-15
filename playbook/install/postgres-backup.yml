@@ -1,0 +1,7 @@
+---
+- name: Setup Postgres-Backups
+  hosts: db_backups
+  gather_facts: true
+  become: true
+  roles:
+    - setup_postgres_backup

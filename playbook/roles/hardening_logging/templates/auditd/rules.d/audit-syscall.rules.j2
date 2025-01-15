@@ -1,0 +1,6 @@
+## {{ ansible_managed }} - {{ template_destpath }}
+## this are the rules for syscalls
+{% for syscall in hardening_logging_auditd_syscalls_list %}
+{{ syscall }}
+{% endfor %}
+# end of file

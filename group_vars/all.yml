@@ -1,0 +1,144 @@
+---
+ansible_ca_files_directory: "/etc/ansible/playbook/files/ca"
+ssl_ca_passphrase: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  32343830653038613636616339303132613730336138393332643838663132623633303731316331
+  6462346537313738343566613137323339373334643334330a363232636637393832646662353134
+  63616264376538356662343533313431323563363531333733366230396165326265373332326138
+  3863663939353662340a373630613735383837373864343530323932383039313563373830343465
+  63386463373766356139663838373536623834626366376430656262343232373531666265393230
+  62366138373337343666633064626661313636356466643637636330656637353365323266656638
+  37643837393730643739373063373565653531623761393735636631633235303036653039366435
+  33616163363961386632
+
+ssl_ca_directory: "/usr/local/share/ca-certificates"
+ssl_ca_file_name: "ca.crt"
+ssl_cert_file_name: "ssl-cert.pem"
+ssl_fullchain_cert_file_name: "fullchain.pem"
+ssl_key_file_name: "ssl-key.key"
+
+ssh_login_group_name: "ssh-login"
+ansible_user_name: "ansible"
+default_user_name: "user"
+
+ssh_ldap_group: "server-admin"
+ssh_specific_ldap_groups: "{{ ssh_specific_ldap_groups_backend|default([]) + ssh_specific_ldap_groups_db|default([]) + ssh_specific_ldap_groups_dns|default([]) + ssh_specific_ldap_groups_frontend|default([]) + ssh_specific_ldap_groups_ids|default([]) + ssh_specific_ldap_groups_keycloak|default([]) + ssh_specific_ldap_groups_mail|default([]) + ssh_specific_ldap_groups_revproxy|default([]) }}"
+
+emergency_user_name: "emergency"
+emergency_user_ssh_key_list:
+  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJMSKqt26bddi7Ej9IczoKnLlVx6HRar0aC+/cpKfXTJ m.fuchs@hm.edu"
+  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPuFiV2nKngM6y7nymXy9rGhVMI1rh3j9Juvn9WMF2ZW felix.schladt@gmail.com"
+  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKNL5VIo19y7H2CB8Oek3VobIPpwvVtjJE3O7fAz6LuM lsb@endeavour"
+
+install_packages:
+  - ca-certificates
+  - curl
+  - gnupg2
+  - lsb-release
+  - nmap
+  - ufw
+
+keyrings_dir: /etc/apt/keyrings
+registry_project: "secsys2425"
+# SSL-Settings
+ssl_cipher_list: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305"
+client_cert_validity: "730"
+server_cert_validity: "365"
+
+ssl_server_cert_key_usage_list:
+  - digitalSignature
+  - keyEncipherment
+  - keyAgreement
+
+ssl_client_cert_key_usage_list:
+  - digitalSignature
+  - keyAgreement
+
+server_network_interface_name: "enp6s18"
+
+docker_network_name: "container_network"
+docker_network_interface_name: "contIf"
+docker_network_subnet: "172.18.0.0/24"
+docker_network_gateway: "172.18.0.1"
+docker_dns_resolver: "127.0.0.11"
+whole_internal_network: "10.0.0.0/8"
+server_internal_network: "10.28.55.0/28"
+
+## Container-Communication
+frontend_container_name: "frontend"
+revproxy_container_name: "nginx"
+revproxy_container_port: "8443"
+nginx_backend_path: "backend"
+##
+
+dns_server_addresses:
+  - 10.28.55.8
+  - 10.28.55.2
+
+# Auto-Updates
+auto_update_reboot_offset: 15m
+auto_update_install_time: "{%- if 'patch_group_a' in group_names -%}01:30{%- elif 'patch_group_b' in group_names -%}02:30{%- elif 'patch_group_c' in group_names -%}03:30{%- else -%}03:30{%- endif -%}"
+auto_update_reboot_time: "{%- if 'patch_group_a' in group_names -%}02:00{%- elif 'patch_group_b' in group_names -%}03:00{%- elif 'patch_group_c' in group_names -%}04:00{%- else -%}04:00{%- endif -%}"
+# Domains and IPs
+domain: "wasser.eu"
+keycloak_server_address: "10.28.55.7"
+keycloak_sub_domain: "keycloak"
+keycloak_full_domain: "{{ keycloak_sub_domain }}.{{ domain }}"
+auth_sub_domain: "auth"
+auth_full_domain: "{{ auth_sub_domain }}.{{ domain }}"
+
+ldap_server_address: "10.28.55.1"
+ldap_sub_domain: "ldap"
+ldap_full_domain: "{{ ldap_sub_domain }}.{{ domain }}"
+ad_sub_domain: "ad"
+ad_full_domain: "{{ ad_sub_domain }}.{{ domain }}"
+
+revproxy_server_address: "10.28.55.3"
+revproxy_sub_domain: "revproxy"
+revproxy_full_domain: "{{ revproxy_sub_domain }}.{{ domain }}"
+
+frontend_server_address: "{{ revproxy_server_address }}"
+frontend_sub_domain: "www"
+frontend_full_domain: "{{ frontend_sub_domain }}.{{ domain }}"
+frontend_actual_server_port: "3000"
+
+backend_server_address: "{{ revproxy_server_address }}"
+backend_sub_domain: "api"
+backend_full_domain: "{{ backend_sub_domain }}.{{ domain }}"
+
+backend_actual_server_address: "{{ database_server_address }}"
+backend_actual_server_port: "8080"
+
+database_server_address: "10.28.55.5"
+database_sub_domain: "db"
+database_full_domain: "{{ database_sub_domain }}.{{ domain }}"
+
+ids_server_address: "10.28.55.6"
+ids_sub_domain: "ids"
+ids_full_domain: "{{ ids_sub_domain }}.{{ domain }}"
+
+mail_server_address: "10.28.55.4"
+mail_sub_domain: "mail"
+mail_full_domain: "{{ mail_sub_domain }}.{{ domain }}"
+mail_alt_sub_domain: "mx"
+mail_alt_full_domain: "{{ mail_alt_sub_domain }}.{{ domain }}"
+
+nameserver1_server_address: "10.28.55.8"
+nameserver1_sub_domain: "ns1"
+nameserver1_full_domain: "{{ nameserver1_sub_domain }}.{{ domain }}"
+nameserver2_server_address: "10.28.55.2"
+nameserver2_sub_domain: "ns2"
+nameserver2_full_domain: "{{ nameserver2_sub_domain }}.{{ domain }}"
+
+
+# postgres
+postgres_server_port: "5432"
+postgres_db: "backend"
+postgres_backup_user: "backup"
+postgres_backend_user: "backend"
+postgres_keycloak_user: "keycloak"
+postgres_keycloak_db: "keycloak"
+postgres_version: "17"
+db_backup_server1: "{{ mail_server_address }}"
+db_backup_server2: "{{ nameserver1_server_address }}"
+keycloak_server_port: "443"

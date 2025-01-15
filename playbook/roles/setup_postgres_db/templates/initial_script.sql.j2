@@ -1,0 +1,53 @@
+-- Als erstes alle User erstellen
+CREATE USER {{ postgres_backend_user }} LOGIN;
+CREATE USER {{ postgres_keycloak_user }} LOGIN;
+CREATE USER {{ postgres_backup_user }} LOGIN;
+
+-- Backend User und Sachen für Backend-DB und Schema
+GRANT CONNECT ON DATABASE {{ postgres_db }} to {{ postgres_backend_user }};
+CREATE SCHEMA IF NOT EXISTS {{ postgres_db }} AUTHORIZATION {{ postgres_backend_user }};
+GRANT CREATE ON SCHEMA {{ postgres_db }} TO {{ postgres_backend_user }};
+GRANT SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER ON ALL TABLES IN SCHEMA {{ postgres_db }} to {{ postgres_backend_user }};
+GRANT USAGE,SELECT,UPDATE ON ALL SEQUENCES IN SCHEMA {{ postgres_db }} to {{ postgres_backend_user }};
+-- Default Rechte für Backend-User, wenn Backend User oder SuperUser eine neue Tabelle/Sequenz anlegen
+{% for item in postgres_initial_backend_default_list %}
+ALTER DEFAULT PRIVILEGES FOR USER {{ item }} IN SCHEMA {{ postgres_db }} GRANT SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER ON TABLES TO {{ postgres_backend_user }};
+ALTER DEFAULT PRIVILEGES FOR USER {{ item }} IN SCHEMA {{ postgres_db }} GRANT USAGE,SELECT,UPDATE ON SEQUENCES TO {{ postgres_backend_user }};
+{% endfor %}
+-- Default Rechte für Backup-User, wenn Backend User oder SuperUser eine neue Tabelle/Sequenz anlegen
+{% for item in postgres_initial_backend_default_list %}
+ALTER DEFAULT PRIVILEGES FOR USER {{ item }} IN SCHEMA {{ postgres_db }} GRANT SELECT ON TABLES TO {{ postgres_backup_user }};
+ALTER DEFAULT PRIVILEGES FOR USER {{ item }} IN SCHEMA {{ postgres_db }} GRANT SELECT ON SEQUENCES TO {{ postgres_backup_user }};
+{% endfor %}
+
+-- Keycloak DB und User erstellen
+CREATE DATABASE {{ postgres_keycloak_db }} WITH encoding 'UTF8' OWNER {{ postgres_keycloak_user }};
+\connect {{ postgres_keycloak_db }};
+GRANT CONNECT ON DATABASE {{ postgres_keycloak_db }} to {{ postgres_keycloak_user }};
+CREATE SCHEMA IF NOT EXISTS {{ postgres_keycloak_db }} AUTHORIZATION {{ postgres_keycloak_user }};
+GRANT CREATE ON SCHEMA {{ postgres_keycloak_db }} TO {{ postgres_keycloak_user }};
+GRANT SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER ON ALL TABLES IN SCHEMA {{ postgres_keycloak_db }} to {{ postgres_keycloak_user }};
+GRANT USAGE,SELECT,UPDATE ON ALL SEQUENCES IN SCHEMA {{ postgres_keycloak_db }} to {{ postgres_keycloak_user }};
+-- Default Rechte für Keycloak-User, wenn Keycloak User oder SuperUser eine neue Tabelle/Sequenz anlegen
+{% for item in postgres_initial_keycloak_default_list %}
+ALTER DEFAULT PRIVILEGES FOR USER {{ item }} IN SCHEMA {{ postgres_keycloak_db }} GRANT SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER ON TABLES TO {{ postgres_keycloak_user }};
+ALTER DEFAULT PRIVILEGES FOR USER {{ item }} IN SCHEMA {{ postgres_keycloak_db }} GRANT USAGE,SELECT,UPDATE ON SEQUENCES TO {{ postgres_keycloak_user }};
+{% endfor %}
+-- Default Rechte für Backup-User, wenn Keycloak User oder SuperUser eine neue Tabelle/Sequenz anlegen
+{% for item in postgres_initial_keycloak_default_list %}
+ALTER DEFAULT PRIVILEGES FOR USER {{ item }} IN SCHEMA {{ postgres_keycloak_db }} GRANT SELECT ON TABLES TO {{ postgres_backup_user }};
+ALTER DEFAULT PRIVILEGES FOR USER {{ item }} IN SCHEMA {{ postgres_keycloak_db }} GRANT SELECT ON SEQUENCES TO {{ postgres_backup_user }};
+{% endfor %}
+
+-- Rechte für die beiden DBs und Schemas dem Backup-User zuweisen
+GRANT CONNECT ON DATABASE {{ postgres_db }} to {{ postgres_backup_user }};
+GRANT CONNECT ON DATABASE {{ postgres_keycloak_db }} to {{ postgres_backup_user }};
+\connect {{ postgres_db }};
+GRANT USAGE ON SCHEMA {{ postgres_db }} TO {{ postgres_backup_user }};
+GRANT SELECT ON ALL TABLES IN SCHEMA {{ postgres_db }} TO {{ postgres_backup_user }};
+GRANT SELECT ON ALL SEQUENCES IN SCHEMA {{ postgres_db }} TO {{ postgres_backup_user }};
+
+\connect {{ postgres_keycloak_db }};
+GRANT USAGE ON SCHEMA {{ postgres_keycloak_db }} TO {{ postgres_backup_user }};
+GRANT SELECT ON ALL TABLES IN SCHEMA {{ postgres_keycloak_db }} TO {{ postgres_backup_user }};
+GRANT SELECT ON ALL SEQUENCES IN SCHEMA {{ postgres_keycloak_db }} TO {{ postgres_backup_user }};

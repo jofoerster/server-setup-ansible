@@ -1,0 +1,4 @@
+---
+# Deploys the Application (Backend + Frontend)
+- import_playbook: install/backend.yml
+- import_playbook: install/frontend.yml

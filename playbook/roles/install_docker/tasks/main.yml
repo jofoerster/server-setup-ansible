@@ -1,0 +1,54 @@
+- name: Docker Repo und Docker installieren
+  ansible.builtin.include_tasks: install_repo.yml
+
+- name: Docker Python Package installieren
+  ansible.builtin.pip:
+    name: docker
+
+- name: Docker Daemon aktivieren und starten
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Containerd Daemon aktivieren und starten
+  ansible.builtin.service:
+    name: containerd
+    state: started
+    enabled: yes
+
+- name: Docker Netzwerk anlegen
+  community.docker.docker_network:
+    name: "{{ docker_network_name }}"
+    enable_ipv6: false
+    driver: bridge
+    driver_options:
+      com.docker.network.bridge.name: "{{ docker_network_interface_name }}"
+    ipam_config:
+      - subnet: "{{ docker_network_subnet }}"
+        gateway: "{{ docker_network_gateway }}"
+
+- name: "Docker-Gruppe anlegen"
+  ansible.builtin.group:
+    name: "{{ docker_group }}"
+
+# Wird nur benötigt auf der Pipeline Maschine, da sich Ansible dort mit sich selber verbindet
+- name: SSH Verbindungen erlauben vom lokalen Docker
+  community.general.ufw:
+    direction: in
+    rule: allow
+    port: 22
+    protocol: tcp
+    interface: "{{ docker_network_interface_name }}"
+    from_ip: "{{ docker_network_subnet }}"
+  when: inventory_hostname in groups['pipeline']
+
+- name: User zur Docker Gruppe hinzufügen
+  ansible.builtin.user:
+    name: '{{ item }}'
+    groups: "{{ docker_group }}"
+    append: yes
+  loop:
+    - "{{ default_user_name }}"
+    - "{{ ansible_user_name }}"
+    - "{{ emergency_user_name }}"

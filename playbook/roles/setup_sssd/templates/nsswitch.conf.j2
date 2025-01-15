@@ -1,0 +1,16 @@
+# {{ ansible_managed }} - {{ template_destpath }}
+
+passwd:     files sss systemd
+group:      files sss systemd
+netgroup:   sss files
+automount:  sss files
+services:   sss files
+shadow:     files sss
+hosts:      files resolve dns myhostname
+aliases:    files
+ethers:     files
+gshadow:    files
+networks:   files dns
+protocols:  files
+publickey:  files
+rpc:        files

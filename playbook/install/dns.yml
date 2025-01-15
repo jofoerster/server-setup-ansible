@@ -1,0 +1,7 @@
+---
+- name: DNS Einstellungen auf den Clients konfigurieren
+  hosts: all
+  gather_facts: true
+  become: true
+  roles:
+    - setup_dns_clients

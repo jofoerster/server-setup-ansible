@@ -1,0 +1,49 @@
+---
+
+# Workaround for RedHat missing 'GRUB_CMDLINE_LINUX_DEFAULT'
+- name: "Req-35 Gather if 'GRUB_CMDLINE_LINUX_DEFAULT' in '{{ grub_default_path }}' exists"  # noqa: name[template]
+  ansible.builtin.shell: |
+    grep -c -e ^GRUB_CMDLINE_LINUX_DEFAULT {{ grub_default_path }}
+  register: grub_cmdline_audit
+  ignore_errors: true
+  no_log: true
+  changed_when: false
+  check_mode: false
+
+- name: "Req-35 Create 'GRUB_CMDLINE_LINUX_DEFAULT' entry if missing"  # noqa: name[template]
+  ansible.builtin.lineinfile:
+    path: "{{ grub_default_path }}"
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT=""'
+  when:
+    - grub_cmdline_audit.stdout | int < 1
+
+- name: "Req-35 Auditing must be enabled at boot by setting a kernel parameter (GRUB_CMDLINE_LINUX_DEFAULT)."  # noqa: name[template]
+  ansible.builtin.lineinfile:
+    path: "{{ grub_default_path }}"
+    regexp: '^(GRUB_CMDLINE_LINUX_DEFAULT=(?!.*audit)\"[^\"]*)(\".*)'
+    line: '\1 audit=1\2'
+    backrefs: true
+  notify: Update grub
+
+- name: "Req-35 Remove from 'GRUB_CMDLINE_LINUX'."  # noqa: name[template]
+  ansible.builtin.lineinfile:
+    path: "{{ grub_default_path }}"
+    regexp: '(GRUB_CMDLINE_LINUX=".*)(\saudit=\d)(.*")'
+    line: '\1\3'
+    backrefs: true
+  notify: Update grub
+
+# TODO: Logrotation einschalten
+#- name: "Req-36 Log rotation for logfiles must be configured."  # noqa: name[template]
+#  ansible.builtin.debug:
+#    msg: "fulfilled within OS image"
+#  run_once: true
+#  delegate_to: localhost
+
+- name: "Req-38 Applicable retention/deletion periods must be observed for security-relevant local logging data."  # noqa: name[template]
+  ansible.builtin.template:
+   src: "{{ role_path }}/templates/logrotate.any-log.j2"
+   dest: '/etc/logrotate.d/any-log'
+   mode: '0644'
+   owner: root
+   group: root

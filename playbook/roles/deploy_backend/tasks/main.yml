@@ -1,0 +1,114 @@
+- name: Erstelle benötigte Ordner
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ backend_directory }}"
+    - "{{ backend_ssl_client_directory }}"
+
+- name: Generate SSL-Client Cert for DB
+  ansible.builtin.include_role:
+    name: generate_ssl_certs
+  vars:
+    ssl_selected_server: "{{ server_host_name }}"
+    ssl_common_name: "{{ postgres_backend_user }}"
+    ssl_dest_dir: "{{ backend_ssl_client_directory }}"
+    ssl_cert_validity_duration: "{{ client_cert_validity }}"
+    ssl_file_owner: "root"
+    ssl_folder_permissions: "0755"
+    ssl_file_permissions: "0644"
+    ssl_key_usage_list: "{{ ssl_client_cert_key_usage_list }}"
+    ssl_extended_key_usage_list:
+      - clientAuth
+    ssl_subject_alt_name_list:
+      - "DNS:{{ postgres_backend_user }}"
+  loop: "{{ ansible_play_hosts }}"
+  loop_control:
+    loop_var: server_host_name
+
+- name: CA-File kopieren
+  ansible.builtin.copy:
+    src: "{{ ssl_ca_directory }}/{{ ssl_ca_file_name }}"
+    dest: "{{ backend_ssl_client_directory }}"
+    remote_src: yes
+    owner: "{{ backend_user_id }}"
+    group: "{{ backend_group_id }}"
+    mode: '0600'
+
+- name: PrivateKey von ClientCerts umwandeln
+  ansible.builtin.command:
+    cmd: "openssl pkcs8 -topk8 -inform PEM -in {{ backend_ssl_client_directory }}/{{ ssl_key_file_name }} -outform DER -out {{ backend_ssl_client_directory }}/{{ backend_converted_key_name }} -nocrypt"
+
+- name: Neuer PrivateKey hat richtige Rechte
+  ansible.builtin.file:
+    path: "{{ backend_ssl_client_directory }}/{{ backend_converted_key_name }}"
+    state: file
+    mode: '0600'
+    owner: "{{ backend_user_id }}"
+    group: "{{ backend_group_id }}"
+
+- name: .env-Datei kopieren
+  ansible.builtin.template:
+    src: "env.j2"
+    dest: "{{ backend_directory }}/{{ backend_env_file }}"
+    owner: "{{ backend_user_id }}"
+    group: "{{ backend_group_id }}"
+    mode: '0600'
+
+- name: Bestehenden Container löschen, falls einer existiert
+  community.docker.docker_container:
+    name: "{{ backend_container_name }}"
+    state: absent
+  ignore_errors: yes
+
+- name: Bestehende Images löschen
+  community.docker.docker_image:
+    name: "{{ backend_full_image_path }}"
+    state: "absent"
+    force_absent: "true"
+
+- name: Log in to GitLab Docker registry using Access Key
+  community.docker.docker_login:
+    state: "present"
+    registry_url: "{{ CI_REGISTRY }}"
+    username: "{{ CI_REGISTRY_USER }}"
+    password: "{{ CI_JOB_TOKEN }}"
+
+- name: Image neu pullen
+  community.docker.docker_image:
+    name: "{{ backend_full_image_path }}:{{ BACKEND_DEPLOY_VERSION }}"
+    state: "present"
+    source: "pull"
+
+- name: Traffic zum Backend erlauben
+  ansible.builtin.include_role:
+    name: add_firewall_rule
+  vars:
+    firewall_rule_protocol: "tcp"
+    firewall_rule_host_port: "{{ backend_server_port }}"
+    firewall_rule_container_port: "{{ backend_docker_port }}"
+    firewall_rule_from_ip: "{{ revproxy_server_address }}"
+
+- name: Backend-Container deployen
+  community.docker.docker_container:
+    name: "{{ backend_container_name }}"
+    image: "{{ backend_full_image_path }}:{{ BACKEND_DEPLOY_VERSION }}"
+    state: started
+    restart: true
+    restart_policy: unless-stopped
+    network_mode: "{{ docker_network_name }}"
+    ports:
+      - "{{ backend_server_port }}:{{ backend_docker_port }}"
+    volumes:
+      - "{{ backend_ssl_client_directory }}:{{ backend_container_ssl_client_directory }}"
+      - "{{ backend_directory }}:{{ backend_container_data }}"
+      - "{{ backend_log_dir }}:{{ backend_container_log_dir }}"
+    env:
+      ENV_FILE_PATH: "{{ backend_container_data }}/{{ backend_env_file }}"
+
+
+- name: Log out from GitLab
+  community.docker.docker_login:
+    registry_url: "{{ CI_REGISTRY }}"
+    state: "absent"

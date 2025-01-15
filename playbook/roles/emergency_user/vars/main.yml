@@ -1,0 +1,14 @@
+---
+emergency_user_sudo_nopasswd: true
+emergency_group_name: "{{ emergency_user_name }}"
+
+emergency_user_shell: "/bin/bash"
+emergency_user_sudo_file_name: "50_{{ emergency_user_name }}_su2root"
+
+ssh_group: "{{ ssh_login_group_name }}"
+emergency_user_ssh_key_dir: "/home/{{ emergency_user_name }}/.ssh"
+emergency_user_ssh_key_filename: "authorized_keys"
+ssh_key_owner: "{{ emergency_user_name }}"
+ssh_key_group: "{{ emergency_group_name }}"
+ssh_key_permission: '0600'
+ssh_key_dir_permission: '0700'

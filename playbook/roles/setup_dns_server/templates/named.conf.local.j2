@@ -1,0 +1,17 @@
+zone "{{ item.name | default(domain) }}." {
+type {{ item.type | default('master') }};
+file "{{ dns_zones_directory }}/{{ item.file | default(dns_zone_file) }}";
+allow-update { {{ item.allow_update | default('none') }}; };
+};
+
+{% for forwarder in dns_forwarders %}
+    zone "{{ forwarder.zone }}" {
+    type forward;
+    forward {{ forwarder.forward }};
+    forwarders {
+    {% for f in forwarder.forwarders %}
+        {{ f }};
+    {% endfor %}
+    };
+    };
+{% endfor %}

@@ -1,0 +1,21 @@
+---
+- import_playbook: ping.yml
+- import_playbook: update_servers.yml
+- import_playbook: install/hardening.yml
+- import_playbook: install/sssd.yml
+- import_playbook: install/ntp.yml
+- import_playbook: install/packages.yml
+- import_playbook: install/docker.yml
+- import_playbook: install/ca.yml
+- import_playbook: install/dns-server.yml
+- import_playbook: install/dns.yml
+- import_playbook: install/nginx.yml
+- import_playbook: install/postgres.yml
+- import_playbook: install/postgres-backup.yml
+- import_playbook: install/auto-update.yml
+- import_playbook: install/ids.yml
+- import_playbook: install/ids-clients.yml
+- import_playbook: install/keycloak.yml
+- import_playbook: install/backend.yml
+- import_playbook: install/frontend.yml
+- import_playbook: install/mail.yml

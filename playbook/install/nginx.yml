@@ -1,0 +1,7 @@
+---
+- name: Setup Nginx
+  hosts: revproxy
+  gather_facts: true
+  become: true
+  roles:
+    - install_nginx

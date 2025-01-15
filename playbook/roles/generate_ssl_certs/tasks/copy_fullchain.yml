@@ -1,0 +1,9 @@
+- name: Fullchain-Zertifikat zum Zielserver schreiben
+  delegate_to: "{{ ssl_selected_server }}"
+  run_once: true
+  ansible.builtin.copy:
+    dest: "{{ ssl_dest_dir }}/{{ ssl_fullchain_cert_file_name }}"
+    content: "{{ certificate.certificate }}{{ lookup('file', ssl_role_ca_cert_path) }}"
+    owner: "{{ ssl_file_owner }}"
+    group: "{{ ssl_file_group | default(omit) }}"
+    mode: "{{ ssl_file_permissions | default('0600') }}"

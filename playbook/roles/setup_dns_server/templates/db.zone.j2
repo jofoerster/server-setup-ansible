@@ -1,0 +1,39 @@
+$TTL 86400
+@   IN  SOA ns1.{{ domain }}. root.{{ domain }}. (
+2023101101   ; Serial
+3600         ; Refresh
+1800         ; Retry
+604800       ; Expire
+86400 )      ; Negative Cache TTL
+;
+
+@     IN  NS  {{ nameserver1_sub_domain }}.{{ domain }}.
+; Name-Server
+{{ nameserver1_sub_domain }}   IN  A   {{ nameserver1_server_address }}
+{{ nameserver2_sub_domain }}   IN  A   {{ nameserver2_server_address }}
+; SRV Eintrag für ldap
+_ldap._tcp IN SRV 10 100 389 {{ ad_sub_domain }}
+_ldaps._tcp IN SRV 10 100 636 {{ ad_sub_domain }}
+; {{ domain }} zeigt auf den Windows Server
+@  IN  A  10.28.55.1
+; LDAP
+{{ ldap_sub_domain }}  IN  A  {{ ldap_server_address }}
+{{ ad_sub_domain }}  IN  A  {{ ldap_server_address }}
+server.{{ ad_sub_domain }}  IN  A  {{ ldap_server_address }}
+; Keyloak Server
+{{ keycloak_sub_domain }}  IN  A  {{ keycloak_server_address }}
+{{ auth_sub_domain }}  IN  A  {{ keycloak_server_address }}
+; RevProxy Server
+{{ revproxy_sub_domain }}  IN  A  {{ revproxy_server_address }}
+; Frontend
+{{ frontend_sub_domain }}  IN  A  {{ frontend_server_address }}
+; Backend
+{{ backend_sub_domain }}  IN  A  {{ backend_server_address }}
+; Database
+{{ database_sub_domain }}  IN  A  {{ database_server_address }}
+; IDS
+{{ ids_sub_domain }}  IN  A  {{ ids_server_address }}
+; Mail
+{{ mail_sub_domain }}  IN  A  {{ mail_server_address }}
+{{ mail_alt_sub_domain }}  IN  A  {{ mail_server_address }}
+

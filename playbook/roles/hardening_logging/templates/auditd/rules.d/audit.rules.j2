@@ -1,0 +1,50 @@
+## {{ ansible_managed }} - {{ template_destpath }}
+## The rules are simply the parameters that would be passed to auditctl.
+
+## First rule - delete all
+-D
+
+## Increase the buffers to survive stress events
+-b {{ hardening_logging_auditd_buffer_size }}
+
+## Set failure mode 0=silent 1=printk 2=panic
+-f 1
+
+## Set enabled flag. 0=disabled 1=enabled 2=immutable
+-e {{ hardening_logging_auditd_immutable_flag }}
+
+## Ignore Record Type CWD - Triggered to record the current working directory
+-a always,exclude -F msgtype=CWD
+
+## Ignore Record Type EOE - Triggered to record the end of a multi-record event
+-a always,exclude -F msgtype=EOE
+
+## Ignore errors when reading rules from a file
+-i
+
+## Ignore Programs SE Linux Type for Cronjobs - User space
+-a never,user -F subj_type=crond_t
+
+## Ignore Programs SE Linux Type for Cronjobs - root cronjobs
+-a never,exit -F subj_type=crond_t
+
+## This prevents chrony from overwhelming the logs - only with SE Linux
+-a never,exit -F arch=b64 -S adjtimex -F auid=unset -F uid=chrony -F subj_type=chronyd_t
+
+-a always,exit -F perm=x -F auid!=-1 -F path=/sbin/insmod -k modules
+
+-a always,exit -F perm=x -F auid!=-1 -F path=/sbin/modprobe -k modules
+
+-a always,exit -F perm=x -F auid!=-1 -F path=/sbin/rmmod -k modules
+
+## KExec usage (all actions)
+-a always,exit -F arch=b64 -S kexec_load -k kexec
+
+## The purpose of this rule is to detect when an admin may be abusing power by looking in users home dir
+-a always,exit -F dir=/home -F uid=0 -F auid>=1000 -F auid!=-1 -C auid!=obj_uid -k power_abuse
+
+## Root command executions
+-a always,exit -F arch=b64 -F euid=0 -S execve -k rootcmd
+
+
+## this is the end of file

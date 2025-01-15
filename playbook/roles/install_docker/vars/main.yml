@@ -1,0 +1,9 @@
+---
+docker_group: "docker"
+docker_packages:
+  - python3-pip
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin

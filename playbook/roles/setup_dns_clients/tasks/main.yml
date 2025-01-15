@@ -1,0 +1,24 @@
+- name: Erstelle benötigten Ordner
+  ansible.builtin.file:
+    path: "{{ dns_client_resolved_path }}"
+    state: directory
+    mode: '0755'
+
+- name: DNS-Client Config setzen
+  ansible.builtin.template:
+    src: "{{ dns_client_conf_name }}.j2"
+    dest: "{{ dns_client_resolved_path }}/{{ dns_client_conf_name }}"
+    mode: '0644'
+    owner: 'root'
+
+- name: Link auf neues Systemd-Resolve File erstellen
+  ansible.builtin.file:
+    src: "{{ dns_systemd_generated_path }}"
+    dest: "{{ dns_resolve_conf_path }}"
+    state: link
+
+- name: Systemd-Resolved Service neustarten
+  service:
+    name: systemd-resolved.service
+    state: restarted
+    enabled: true

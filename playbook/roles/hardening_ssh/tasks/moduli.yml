@@ -1,0 +1,37 @@
+---
+
+- name: Gather moduli below threshold
+  ansible.builtin.shell: |
+    /bin/awk '$5 < {{ hardening_ssh_moduli_threshold }}' < {{ hardening_ssh_moduli_path }}
+  args:
+    executable: /bin/bash
+  changed_when: false
+  ignore_errors: "{{ ansible_check_mode }}"
+  register: moduli_output
+
+- name: "Filter moduli - keep all equal or greater {{ hardening_ssh_moduli_threshold }} "
+  ansible.builtin.shell: |
+    /bin/awk '$5 >= {{ hardening_ssh_moduli_threshold }}' {{ hardening_ssh_moduli_path }} > {{ hardening_ssh_moduli_temp_path }}
+  changed_when: false
+  ignore_errors: "{{ ansible_check_mode }}"
+  when: moduli_output.stdout_lines | length > 0
+
+- name: "Copy {{ hardening_ssh_moduli_temp_path }} to {{ hardening_ssh_moduli_path }}"  # noqa: name[template]
+  ansible.builtin.copy:
+    remote_src: true
+    src: "{{ hardening_ssh_moduli_temp_path }}"
+    dest: "{{ hardening_ssh_moduli_path }}"
+    mode: '0644'
+    owner: root
+    group: root
+  ignore_errors: "{{ ansible_check_mode }}"
+  when: moduli_output.stdout_lines | length > 0
+  notify:
+    - Restart sshd
+
+- name: "Remove {{ hardening_ssh_moduli_temp_path }}"
+  ansible.builtin.file:
+    path: "{{ hardening_ssh_moduli_temp_path }}"
+    state: absent
+  ignore_errors: "{{ ansible_check_mode }}"
+  when: moduli_output.stdout_lines | length > 0

@@ -1,0 +1,30 @@
+---
+
+- name: "Req-69 Ensure required package for 'AppArmor' module are present."  # noqa: name[template]
+  ansible.builtin.package:
+    name: "{{ hardening_linux_apparmor_package_list }}"
+    state: present
+
+- name: "Req-69 If AppArmor is used, it must not be disabled in bootloader configuration"  # noqa: name[template]
+  ansible.builtin.lineinfile:
+    state: present
+    path: "/etc/default/grub"
+    backrefs: true
+    regexp: '^({{ item }}=(?!.*apparmor)\"[^\"]*)(\".*)'
+    line: '\1 apparmor=1\2'
+  notify: Update grub
+  with_items:
+    - GRUB_CMDLINE_LINUX
+    - GRUB_CMDLINE_LINUX_DEFAULT
+
+- name: "Req-70 If AppArmor is used, its state must be enforced (service)."  # noqa: name[template]
+  ansible.builtin.service:
+    name: apparmor
+    enabled: true
+    state: started
+
+- name: "Req-70 If AppArmor is used, its state must be enforced."  # noqa: name[template]
+  ansible.builtin.shell: |
+    aa-enforce /etc/apparmor.d/*
+  changed_when: false
+  ignore_errors: "{{ ansible_check_mode }}"

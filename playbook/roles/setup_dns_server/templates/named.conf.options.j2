@@ -1,0 +1,55 @@
+acl "trusted-clients" {
+    localhost;
+    {{ dns_internal_network }};
+};
+
+acl "restricted-clients" {};
+
+tls local-tls {
+   cert-file "ssl-cert.pem";
+   key-file "ssl-key.key";
+};
+
+
+options {
+    directory "{{ dns_working_directory }}/";
+
+    // Basic security settings
+    allow-query {
+        trusted-clients;
+        restricted-clients;
+    };
+
+    recursion yes;
+    allow-recursion {
+        trusted-clients;
+    };
+
+    // Transfer restrictions
+    allow-transfer { none; };
+
+    // Forwarders configuration
+    forward only;
+    forwarders {
+        8.8.8.8;  // Google DNS
+        8.8.4.4;  // Google DNS
+        1.1.1.1;  // Cloudflare
+    };
+
+    // Network settings
+    listen-on port {{ dns_port }} tls local-tls { any; };
+    listen-on port {{ dns_port_2 }} { any; };
+    listen-on-v6 { none; };
+
+    // Security settings
+    key-directory "{{ dns_zones_directory }}";
+    version none;
+    dnssec-validation auto;
+    minimal-responses yes;
+    auth-nxdomain no;
+    empty-zones-enable yes;
+
+    // Performance tuning
+    max-cache-size 256M;
+    max-ncache-ttl 3600;
+};

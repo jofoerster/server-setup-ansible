@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# {{ ansible_managed }} - {{ template_destpath }}
+
+### vars
+my_input=$1
+
+
+### functions
+check_root () {
+    if [[ "$(whoami)" != "root" ]]; then
+        echo "This script must be run as 'root'"
+        exit 1
+    fi
+}
+
+# Req-10 Sticky bit must be set on all world-writable directories: gather directories
+req_10 () {
+    df --local -P | awk {'if (NR!=1) print $6'} | grep -v '/run' | xargs -I '{}' find '{}' {{ hardening_linux_exclude_path_list | map('regex_replace', '(.+)', '-path \\1 -prune') | join(' -o ') }} -o -xdev -type d -perm -0002 2>/dev/null
+}
+
+# Req-11 No regular files that are world writable must exist: gather files
+req_11 () {
+    df --local -P | awk {'if (NR!=1) print $6'} | grep -v '/run' | xargs -I '{}' find '{}' {{ hardening_linux_exclude_path_list | map('regex_replace', '(.+)', '-path \\1 -prune') | join(' -o ') }} -o -xdev -type f -perm -0002 2>/dev/null
+}
+
+# Req-14 Not needed SUID and SGID bits must be removed from executables
+req_14 () {
+    df --local -P | awk {'if (NR!=1) print $6'} | grep -v '/run' | xargs -I '{}' find '{}' {{ hardening_linux_exclude_path_list | map('regex_replace', '(.+)', '-path \\1 -prune') | join(' -o ') }} -o -xdev -type f \( -perm -4000 -o -perm -2000 \) -print 2>/dev/null
+}
+
+
+selector () {
+    case "$my_input" in
+        "req_10")
+            req_10
+            ;;
+        "req_11")
+            req_11
+            ;;
+        "req_14")
+            req_14
+            ;;
+    esac
+}
+
+
+### main
+check_root
+selector

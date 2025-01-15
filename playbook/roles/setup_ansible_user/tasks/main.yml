@@ -1,0 +1,50 @@
+- name: "SSH-Login Gruppe anlegen"
+  ansible.builtin.group:
+    name: "{{ ssh_login_group_name }}"
+    system: true
+
+- name: Default User zur SSH-Login Gruppe hinzufügen
+  ansible.builtin.user:
+    name: "{{ default_user_name }}"
+    groups: "{{ ssh_login_group_name }}"
+    append: yes
+
+- name: "Ansible-Gruppe anlegen"
+  ansible.builtin.group:
+    name: "{{ ansible_user_name }}"
+    gid: 9997
+
+- name: "Ansible User anlegen"
+  ansible.builtin.user:
+    name: "{{ ansible_user_name }}"
+    comment: "user for ansible"
+    uid: "9997"
+    groups:
+      - "{{ ansible_user_name }}"
+      - "{{ ssh_login_group_name }}"
+    create_home: true
+    shell: '/bin/bash'
+    umask: '0002'
+    password: '*'
+    password_expire_min: 0
+    password_expire_max: 99999
+
+- name: "Make sure folder has the right permissions"
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user_name }}"
+    owner: "{{ ansible_user_name }}"
+    mode: '755'
+    state: directory
+
+- name: "sudo Ansible hinzufügen konfigurieren"
+  ansible.builtin.copy:
+    content: "{{ ansible_user_name }}     ALL=(ALL)   NOPASSWD: ALL\n"
+    dest: "/etc/sudoers.d/52_{{ ansible_user_name }}"
+    mode: 0440
+
+- name: Set authorized key for ansible user
+  ansible.posix.authorized_key:
+    user: "{{ ansible_user_name }}"
+    state: present
+    exclusive: true
+    key: "{{ SSH_PUBLIC_KEY }}"

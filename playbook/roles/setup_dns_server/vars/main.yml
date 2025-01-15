@@ -1,0 +1,18 @@
+dns_internal_network: "10.28.55.0/24"
+dns_zone_file: "{{ domain }}.db"
+dns_zones:
+  - name: "{{ domain }}"
+    file: "{{ dns_zone_file }}"
+    type: "master"
+    allow_update: "key ddns-key"
+dns_forwarders: []
+
+dns_bind_user: "bind"
+dns_bind_group: "bind"
+dns_bind_directory: "/etc/bind"
+dns_zones_directory: "{{ dns_bind_directory }}/zones"
+dns_working_directory: "/var/cache/bind"
+dns_conf_options_file: "named.conf.options"
+dns_conf_logging_file: "named.conf.logging"
+dns_port: 853
+dns_port_2: 53

@@ -1,0 +1,23 @@
+---
+
+- name: Roll out sshd_config
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/sshd_config.j2"
+    dest: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: "0600"
+    validate: /usr/sbin/sshd -t -f %s
+  notify:
+    - Restart sshd
+
+- name: "Roll out '/etc/ssh/banner.txt'"
+  ansible.builtin.template:
+    src: "{{ hardening_ssh_banner_template }}"
+    dest: "{{ hardening_ssh_banner }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Force all notified handlers to run at this point
+  ansible.builtin.meta: flush_handlers

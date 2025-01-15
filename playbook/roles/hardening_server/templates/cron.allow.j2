@@ -1,0 +1,4 @@
+# {{ ansible_managed }} - {{ template_destpath }}
+{% for user in hardening_linux_cron_allow_user_list %}
+{{ user }}
+{% endfor %}

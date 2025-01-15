@@ -1,0 +1,46 @@
+- name: Generate SSL-Certs for Mail-Server
+  ansible.builtin.include_role:
+    name: generate_ssl_certs
+  vars:
+    ssl_selected_server: "{{ ansible_hostname }}"
+    ssl_common_name: "{{ mail_full_domain }}"
+    ssl_dest_dir: "{{ mail_cert_dir }}"
+    ssl_cert_validity_duration: "{{ server_cert_validity }}"
+    ssl_output_as_fullchain: true
+    ssl_file_owner: "root"
+    ssl_key_usage_list: "{{ ssl_server_cert_key_usage_list }}"
+    ssl_extended_key_usage_list:
+      - serverAuth
+    ssl_subject_alt_name_list:
+      - "DNS:{{ mail_full_domain }}"
+      - "DNS:{{ mail_alt_full_domain }}"
+      - "DNS:{{ ansible_hostname }}"
+      - "DNS:{{ mail_sub_domain }}"
+      - "IP:{{ mail_server_address }}"
+
+- name: Firewall Regeln hinzufügen
+  community.general.ufw:
+    rule: allow
+    direction: in
+    protocol: "tcp"
+    port: "{{ item.port }}"
+    interface: "{{ server_network_interface_name }}"
+    from_ip: "{{ item.from_ip }}"
+  loop:
+    - { port: "25", from_ip: "{{ whole_internal_network }}" }
+    - { port: "143", from_ip: "{{ whole_internal_network }}" }
+    - { port: "465", from_ip: "{{ whole_internal_network }}" }
+    - { port: "587", from_ip: "{{ whole_internal_network }}" }
+    - { port: "993", from_ip: "{{ whole_internal_network }}" }
+
+- name: Postfix Daemon aktivieren und starten
+  ansible.builtin.service:
+    name: postfix
+    state: restarted
+    enabled: yes
+
+- name: Dovecot Daemon aktivieren und starten
+  ansible.builtin.service:
+    name: dovecot
+    state: restarted
+    enabled: yes

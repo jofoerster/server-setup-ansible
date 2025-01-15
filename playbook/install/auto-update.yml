@@ -1,0 +1,71 @@
+- name: Configure automated updates
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    ## https://help.ubuntu.com/community/AutomaticSecurityUpdates
+    - name: Voraussetzungen installieren
+      ansible.builtin.apt:
+        name: update-notifier-common
+        state: present
+
+    - name: Auto-Upgrade Config anlegen
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        content: |
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+        mode: "0644"
+        owner: root
+        group: root
+      register: unattended_upgrades_config_set
+
+    - name: Normale Updates und automatische Reboots aktivieren
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/52unattended-upgrades-local
+        content: |
+          Unattended-Upgrade::Allowed-Origins {
+                  "${distro_id}:${distro_codename}";
+                  "${distro_id}:${distro_codename}-security";
+                  // Extended Security Maintenance; doesn't necessarily exist for
+                  // every release and this system may not have it installed, but if
+                  // available, the policy for updates is such that unattended-upgrades
+                  // should also install from here by default.
+                  "${distro_id}ESMApps:${distro_codename}-apps-security";
+                  "${distro_id}ESM:${distro_codename}-infra-security";
+                  "${distro_id}:${distro_codename}-updates";
+                  "Docker:${distro_codename}";
+          };
+          
+          Unattended-Upgrade::Automatic-Reboot "true";
+          Unattended-Upgrade::Automatic-Reboot-Time "{{ auto_update_reboot_time }}";
+        mode: "0644"
+        owner: root
+        group: root
+      register: unattended_upgrades_settings_set
+
+    - name: Paket rekonfigurieren
+      ansible.builtin.command:
+        cmd: dpkg-reconfigure -f noninteractive unattended-upgrades
+      register: dpkg_reconfigure_unattended_upgrades
+      when:
+        - unattended_upgrades_config_set.changed or
+          unattended_upgrades_settings_set.changed
+
+    # Updates sollen immer Montag und Donnerstag-Nachts installiert werden
+    - name: Timer Startzeit aktualisieren
+      ansible.builtin.lineinfile:
+        path: /lib/systemd/system/apt-daily-upgrade.timer
+        regexp: '^OnCalendar'
+        line: OnCalendar=Mon,Thu *-*-* {{ auto_update_install_time }}
+
+    - name: Timer Offset aktualisieren
+      ansible.builtin.lineinfile:
+        path: '/lib/systemd/system/apt-daily-upgrade.timer'
+        regexp: '^RandomizedDelaySec'
+        line: 'RandomizedDelaySec={{ auto_update_reboot_offset }}'
+
+    - name: Timer neuladen
+      ansible.builtin.service:
+        name: apt-daily-upgrade.timer
+        daemon_reload: true

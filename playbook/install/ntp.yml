@@ -1,0 +1,19 @@
+---
+- name: NTP-Server konfigurieren
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Timesyncd Service aktivieren
+      service:
+        name: systemd-timesyncd
+        state: started
+        enabled: yes
+
+    - name: Zeitzone setzen
+      ansible.builtin.command:
+        cmd: timedatectl set-timezone Europe/Berlin
+
+    - name: Sichergehen, dass NTP an ist
+      ansible.builtin.command:
+        cmd: timedatectl set-ntp on

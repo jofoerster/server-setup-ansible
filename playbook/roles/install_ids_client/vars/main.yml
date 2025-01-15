@@ -1,0 +1,9 @@
+---
+ids_key_name: "wazuh.asc"
+ids_registration_passwort: ""
+ids_agent_name: "apt-agent"
+ids_ca_path: "{{ ssl_ca_directory }}/{{ ssl_ca_file_name }}"
+ids_conf_file_name: "ossec.conf"
+ids_agent_max_retries: 5
+ids_agent_config_profile: "webserver, ubuntu, ubuntu22, ubuntu22.04"
+ids_agent_group: ""

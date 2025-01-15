@@ -1,0 +1,17 @@
+---
+- name: Setup Certificate Authority
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    - name: CA-File zu trusted CAs kopieren
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "{{ ssl_ca_directory }}"
+        owner: root
+        mode: '0644'
+      loop:
+        - "./../files/ca/{{ ssl_ca_file_name }}"
+
+    - name: CAs aktualisieren
+      ansible.builtin.command: update-ca-certificates

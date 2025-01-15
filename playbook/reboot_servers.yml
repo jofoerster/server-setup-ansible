@@ -1,0 +1,17 @@
+---
+- name: Reboot all Servers except Pipeline-Server
+  hosts: all,!secsys02
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Reboot Servers
+      ansible.builtin.reboot:
+
+- name: Reboot Pipeline-Server
+  hosts: secsys02
+  gather_facts: false
+  become: true
+  tasks:
+    # Wird immer failen, weil der Container beendet wird, wenn der Pipeline-Server neustartet
+    - name: Reboot Server
+      ansible.builtin.reboot:

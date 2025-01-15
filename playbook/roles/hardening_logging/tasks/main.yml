@@ -1,0 +1,8 @@
+---
+
+- name: Include tasks for auditd configuration
+  ansible.builtin.include_tasks: auditd.yml
+
+#TODO: Maybe having a syslog server
+#- name: Include tasks for rsyslogd configuration
+#  ansible.builtin.include_tasks: rsyslogd.yml

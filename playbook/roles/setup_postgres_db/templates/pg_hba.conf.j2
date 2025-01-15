@@ -1,0 +1,7 @@
+# TYPE          DATABASE                                       USER                                                ADDRESS                                          METHOD
+local               all                             {{ postgres_root_user }}                                                                           {{ postgres_pw_auth_method }}
+hostssl     {{ postgres_db }}                       {{ postgres_backend_user }}                         {{ docker_network_subnet }}                    {{ postgres_cert_auth_method }}
+hostssl     {{ postgres_keycloak_db }}              {{ postgres_keycloak_user }}                        {{ keycloak_server_address }}/32               {{ postgres_cert_auth_method }}
+
+hostssl     {{ postgres_db }},{{ postgres_keycloak_db }} {{ postgres_backup_user }}                     {{ db_backup_server1 }}/32                     {{ postgres_cert_auth_method }}
+hostssl     {{ postgres_db }},{{ postgres_keycloak_db }} {{ postgres_backup_user }}                     {{ db_backup_server2 }}/32                     {{ postgres_cert_auth_method }}

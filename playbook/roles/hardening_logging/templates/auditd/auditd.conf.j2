@@ -1,0 +1,36 @@
+# {{ ansible_managed }} - {{ template_destpath }}
+# This file controls the configuration of the audit daemon
+# take a look to "man auditd.conf", this manpage is good!
+#
+local_events = {{ hardening_logging_auditd_conf_local_events }}
+write_logs = {{ hardening_logging_auditd_conf_write_logs }}
+log_file = {{ hardening_logging_auditd_conf_log_file }}
+log_group = {{ hardening_logging_auditd_conf_log_group }}
+log_format = {{ hardening_logging_auditd_conf_log_format }}
+flush = {{ hardening_logging_auditd_conf_flush }}
+freq = {{ hardening_logging_auditd_conf_freq }}
+max_log_file = {{ hardening_logging_auditd_conf_max_log_file }}
+num_logs = {{ hardening_logging_auditd_conf_num_logs }}
+priority_boost = {{ hardening_logging_auditd_conf_priority_boost }}
+{% if hardening_logging_auditd_conf_disp_qos %}
+disp_qos = {{ hardening_logging_auditd_conf_disp_qos }}
+{% endif %}
+{% if hardening_logging_auditd_conf_dispatcher %}
+dispatcher = {{ hardening_logging_auditd_conf_dispatcher }}
+{% endif %}
+name_format = {{ hardening_logging_auditd_conf_name_format }}
+max_log_file_action = {{ hardening_logging_auditd_conf_max_log_file_action }}
+space_left = {{ hardening_logging_auditd_conf_space_left }}
+space_left_action = {{ hardening_logging_auditd_conf_space_left_action }}
+verify_email = {{ hardening_logging_auditd_conf_verify_email }}
+action_mail_acct = {{ hardening_logging_auditd_conf_action_mail_acct }}
+admin_space_left = {{ hardening_logging_auditd_conf_admin_space_left }}
+admin_space_left_action = {{ hardening_logging_auditd_conf_admin_space_left_action }}
+disk_full_action = {{ hardening_logging_auditd_conf_disk_full_action }}
+disk_error_action = {{ hardening_logging_auditd_conf_disk_error_action }}
+use_libwrap = {{ hardening_logging_auditd_conf_use_libwrap }}
+tcp_listen_queue = {{ hardening_logging_auditd_conf_tcp_listen_queue }}
+tcp_max_per_addr = {{ hardening_logging_auditd_conf_tcp_max_per_addr }}
+tcp_client_max_idle = {{ hardening_logging_auditd_conf_tcp_client_max_idle }}
+distribute_network = {{ hardening_logging_auditd_conf_distribute_network }}
+enable_krb5 = {{ hardening_logging_auditd_conf_enable_krb5 }}

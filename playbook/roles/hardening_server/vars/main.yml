@@ -1,0 +1,233 @@
+---
+## Linux Hardening
+### common vars
+hardening_linux_script_path: "/data/scripts/compliance"
+hardening_linux_script_name: "hardening_linux_checks.sh"
+hardening_linux_exclude_path_list:
+  - '/var/lib/docker'
+  - '/var/lib/kubelet'
+  - '/var/run/containers'
+  - '/var/lib/containers'
+
+hardening_linux_shm_dict:
+  '/dev/shm':
+    opt_list:
+      - 'nodev'
+      - 'nosuid'
+      - 'noexec'
+    src: 'tmpfs'
+    fstype: 'tmpfs'
+
+### System Hardening
+hardening_linux_server_packages_list:
+  - "openbsd-inetd"
+  - "inetutils-inetd"
+  - "xinetd"
+  - "xserver-xorg-core"
+  - "xterm"
+  - "nfs-kernel-server"
+  - "vsftpd"
+  - "ftpd"
+  - "isc-dhcp-server"
+  - "dhcp-server"
+  - "dhcp-relay"
+  - "nis"
+  - "avahi-daemon"
+  - "cups"
+  - "snmpd"
+  - "samba"
+  - "avahi-dnsconfd"
+  - "avahi-ui-utils"
+  - "tftp-server"
+  - "tftpd-hpa"
+  - "inetutils-telnetd"
+  - "rsh-server"
+  - "yp-tools"
+  - "friendly-recovery"
+  - "iscsi.service"
+  - "ntp"
+  - "rpcbind"
+
+hardening_linux_client_packages_list:
+  - "talk"
+  - "telnet"
+  - "tftp"
+  - "lftp"
+  - "ftp"
+  - "rsh-redone-client"
+  - "at"                  # NOT a client, but not needed
+  - "rsh-client"
+  - "inetutils-telnet"
+
+hardening_linux_packages_list: "{{ hardening_linux_server_packages_list + hardening_linux_client_packages_list }}"
+hardening_linux_grub_command: "update-grub"
+grub_default_path: "/etc/default/grub"
+
+# Req 9 The use of "at" and "cron" must be restricted to authorized users
+hardening_linux_cron_allow_user_list:
+  - root
+  - ansible
+
+# Req 12 Sessions must be automatically terminated
+hardening_linux_session_timeout: 900  # 900 (s) = 15 min
+
+# Req 53 Passwords must be protected by using hashing function. Passwords must be kept at least 1 day and must be changed latest after 365 days.
+hardening_linux_login_defs_dict:
+  ENCRYPT_METHOD: "SHA512"
+  SHA_CRYPT_MIN_ROUNDS: 640000
+  PASS_MAX_DAYS: 365
+  PASS_MIN_DAYS: 1
+
+# Req 14 The default user "umask" must be 027 or more restrictive.
+hardening_linux_umask: '027'
+
+# Req 15 Not needed SUID and SGID bits must be removed from executables.
+hardening_linux_allowed_executables_list:
+  - /bin/fusermount
+  - /bin/ping
+  - /bin/ping6
+  - /sbin/mount.nfs
+  - /sbin/mount.nfs4
+  - /sbin/pam_timestamp_check
+  - /sbin/umount.nfs
+  - /sbin/umount.nfs4
+  - /sbin/unix_chkpwd
+  - /usr/bin/at
+  - /usr/bin/chage
+  - /usr/bin/chfn
+  - /usr/bin/chsh
+  - /usr/bin/crontab
+  - /usr/bin/expiry
+  - /usr/bin/gpasswd
+  - /usr/bin/locate
+  - /usr/bin/mlocate
+  - /usr/bin/newgrp
+  - /usr/bin/passwd
+  - /usr/bin/pkexec
+  - /usr/bin/screen
+  - /usr/bin/ssh-agent
+  - /usr/bin/su
+  - /usr/bin/sudo
+  - /usr/bin/sudoedit
+  - /usr/bin/traceroute6.iputils
+  - /usr/bin/wall
+  - /usr/bin/write
+  - /usr/libexec/utempter/utempter
+  - /usr/sbin/ccreds_validate
+  - /usr/sbin/lockdev
+  - /usr/sbin/postdrop
+  - /usr/sbin/postqueue
+  - /usr/sbin/sendmail.sendmail
+  - /usr/sbin/suexec
+  - /usr/lib/dbus-1.0/dbus-daemon-launch-helper  # Ubuntu
+  - /usr/lib/polkit-1/polkit-agent-helper-1      # RHEL + SLES + Ubuntu 22
+  - /usr/libexec/polkit-agent-helper-1           # Ubuntu 22
+  - /usr/lib/policykit-1/polkit-agent-helper-1   # Ubuntu 20 + 22
+
+# Req 15 Core dumps must be disabled and crash reporting software must be removed.
+hardening_linux_crash_packages_list:
+  - reportbug
+  - apport
+  - abrt
+
+hardening_linux_core_dump_dict:
+  fs.suid_dumpable: 0
+  kernel.core_pattern: '|/bin/false'  # set to different value because of bug which destroy /dev/null
+  # see https://lore.kernel.org/stable/lsq.1448404439.504877155@decadent.org.uk/
+
+
+# Req 18 IPv4 protocol stack must be securely configured.
+hardening_linux_ipv4_dict:
+  net.ipv4.ip_forward: 1
+  net.ipv4.conf.all.accept_redirects: 0
+  net.ipv4.conf.default.accept_redirects: 0
+  net.ipv4.conf.all.secure_redirects: 0
+  net.ipv4.conf.default.secure_redirects: 0
+  net.ipv4.conf.all.shared_media: 0
+  net.ipv4.conf.default.shared_media: 0
+  net.ipv4.conf.all.send_redirects: 0
+  net.ipv4.conf.default.send_redirects: 0
+  net.ipv4.conf.all.accept_source_route: 0
+  net.ipv4.conf.default.accept_source_route: 0
+  net.ipv4.conf.all.log_martians: 1
+  net.ipv4.conf.default.log_martians: 1
+  net.ipv4.icmp_echo_ignore_broadcasts: 1
+  net.ipv4.icmp_ignore_bogus_error_responses: 1
+  net.ipv4.conf.all.rp_filter: 1
+  net.ipv4.conf.default.rp_filter: 1
+  net.ipv4.tcp_syncookies: 1
+  net.ipv4.icmp_ratelimit: 100
+  net.ipv4.icmp_ratemask: 88089
+  net.ipv4.tcp_timestamps: 1
+  net.ipv4.conf.all.arp_ignore: 2
+  net.ipv4.conf.default.arp_ignore: 2
+  net.ipv4.conf.all.arp_announce: 2
+  net.ipv4.conf.default.arp_announce: 2
+  net.ipv4.conf.all.arp_notify: 0
+  net.ipv4.conf.default.arp_notify: 0
+  net.ipv4.conf.all.arp_accept: 0
+  net.ipv4.conf.default.arp_accept: 0
+
+# Req 19 IPv6 protocol stack must be securely configured.
+hardening_linux_ipv6_enabled: false
+
+hardening_linux_ipv6_dict:
+  net.ipv6.conf.all.disable_ipv6: 0
+  net.ipv6.conf.default.disable_ipv6: 0
+  net.ipv6.conf.all.forwarding: 1
+  net.ipv6.conf.all.accept_redirects: 0
+  net.ipv6.conf.all.accept_source_route: 0
+  net.ipv6.conf.all.accept_ra: 0
+  net.ipv6.conf.all.router_solicitations: 0
+  net.ipv6.conf.all.autoconf: 0
+  net.ipv6.conf.default.forwarding: 1
+  net.ipv6.conf.default.accept_redirects: 0
+  net.ipv6.conf.default.accept_source_route: 0
+  net.ipv6.conf.default.accept_ra: 0
+  net.ipv6.conf.default.router_solicitations: 0
+  net.ipv6.conf.default.autoconf: 0
+
+hardening_linux_ipv6_disabled_dict:
+  net.ipv6.conf.all.disable_ipv6: 1
+  net.ipv6.conf.default.disable_ipv6: 1
+  net.ipv6.conf.lo.disable_ipv6: 1
+
+# Req 26 System accounts must be non-login
+hardening_linux_uid_max: 999
+### Mandatory Access Control (AppArmor) (Req 69 - 70)
+hardening_linux_use_apparmor: true
+hardening_linux_apparmor_package_list:
+  - apparmor
+  - apparmor-utils
+
+### Regular Compliance Checks (Req 71 - 80)
+# switch to force requirements in compliance check
+hardening_linux_use_cc: true
+
+# Req 72 A user's home directory must be owned by the user and have mode 750 or more restrictive
+hardening_linux_cc_home_path: "/home"
+
+hardening_linux_vpn_full_network: "129.0.0.0/8"
+
+# Script, damit Docker-Container nicht automatisch für Remote Zugriff erlaubt werden, sondern stattdessen ebenso über UFW laufen
+# Nur interne Calls auf dem Netzwerk 172.16.0.0/14 (das für Docker Bridges) werden erlaubt
+hardening_linux_ufw_docker_fix: |
+  *filter
+  :ufw-user-forward - [0:0]
+  :ufw-docker-logging-deny - [0:0]
+  :DOCKER-USER - [0:0]
+  -A DOCKER-USER -j ufw-user-forward
+  
+  -A DOCKER-USER -j RETURN -s 172.16.0.0/14
+  
+  -A DOCKER-USER -p udp -m udp --sport 53 --dport 1024:65535 -j RETURN
+  
+  -A DOCKER-USER -j ufw-docker-logging-deny -p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -d 172.16.0.0/14
+  -A DOCKER-USER -j ufw-docker-logging-deny -p udp -m udp --dport 0:32767 -d 172.16.0.0/14
+  
+  -A DOCKER-USER -j RETURN
+  
+  -A ufw-docker-logging-deny -m limit --limit 3/min --limit-burst 10 -j LOG --log-prefix "[UFW DOCKER BLOCK] "
+  -A ufw-docker-logging-deny -j DROP
+  
+  COMMIT

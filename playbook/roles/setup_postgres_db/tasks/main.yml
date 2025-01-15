@@ -1,0 +1,137 @@
+- name: Postgres Repo und Postgres-Client installieren
+  ansible.builtin.include_role:
+    name: install_postgres_client
+
+- name: Create PostgreSQL directories with secure permissions
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0700'
+    owner: "{{ postgres_user_id }}"
+    group: "{{ postgres_user_id }}"
+    recurse: yes
+  loop: # create all the needed directories
+    - "{{ postgres_dir }}"
+    - "{{ postgres_certs_dir }}"
+    - "{{ postgres_config_dir }}"
+
+- name: Generate SSL-Certs
+  ansible.builtin.include_role:
+    name: generate_ssl_certs
+  vars:
+    ssl_selected_server: "{{ ansible_hostname }}"
+    ssl_common_name: "{{ database_full_domain }}"
+    ssl_dest_dir: "{{ postgres_certs_dir }}"
+    ssl_cert_validity_duration: "{{ postgres_own_cert_validity }}"
+    ssl_file_owner: "{{ postgres_user_id }}"
+    ssl_key_usage_list: "{{ ssl_server_cert_key_usage_list }}"
+    ssl_extended_key_usage_list:
+      - serverAuth
+    ssl_subject_alt_name_list:
+      - "DNS:{{ ansible_hostname }}"
+      - "DNS:{{ database_full_domain }}"
+      - "DNS:{{ postgres_container_name }}"
+      - "IP:{{ database_server_address }}"
+
+- name: CA-File kopieren
+  ansible.builtin.copy:
+    src: "{{ ssl_ca_directory }}/{{ ssl_ca_file_name }}"
+    dest: "{{ postgres_certs_dir }}"
+    remote_src: yes
+    owner: "{{ postgres_user_id }}"
+    mode: '0600'
+
+- name: PostgreSQL Config kopieren
+  ansible.builtin.template:
+    src: "{{ postgres_conf_file }}.j2"
+    dest: "{{ postgres_config_dir }}/{{ postgres_conf_file }}"
+    mode: '0600'
+    owner: "{{ postgres_user_id }}"
+
+- name: Create client authentication configuration
+  ansible.builtin.template:
+    src: "{{ postgres_hba_file }}.j2"
+    dest: "{{ postgres_config_dir }}/{{ postgres_hba_file }}"
+    mode: '0600'
+    owner: "{{ postgres_user_id }}"
+
+- name: Initial-Script kopieren
+  ansible.builtin.template:
+    src: "{{ postgres_initial_file }}.j2"
+    dest: "{{ postgres_config_dir }}/{{ postgres_initial_file }}"
+    mode: '0600'
+    owner: "{{ postgres_user_id }}"
+
+- name: DB-Traffic erlauben
+  ansible.builtin.include_role:
+    name: add_firewall_rule
+  vars:
+    firewall_rule_protocol: "tcp"
+    firewall_rule_host_port: "{{ postgres_server_port }}"
+    firewall_rule_container_port: "{{ postgres_server_port }}"
+    firewall_rule_from_ip: "{{ keycloak_server_address }}"
+
+- name: Volume für DB erstellen
+  community.docker.docker_volume:
+    name: "{{ postgres_data_volume }}"
+  register: volume_created
+
+- name: Bestehenden Container löschen, falls einer existiert
+  community.docker.docker_container:
+    name: "{{ postgres_container_name }}"
+    state: absent
+  ignore_errors: yes
+
+- name: Postgres-Container deployen
+  community.docker.docker_container:
+    name: "{{ postgres_container_name }}"
+    image: "postgres:{{ postgres_image }}"
+    command: "-c config_file=/etc/{{ postgres_conf_file }}"
+    state: started
+    restart: true
+    restart_policy: unless-stopped
+    network_mode: "{{ docker_network_name }}"
+    ports:
+      - "{{ postgres_server_port }}:{{ postgres_server_port }}"
+    volumes:
+      - "{{ postgres_config_dir }}/{{ postgres_initial_file }}:/docker-entrypoint-initdb.d/{{ postgres_initial_file }}:ro"
+      - "{{ postgres_data_volume }}:{{ postgres_container_data_dir }}"
+      - "{{ postgres_config_dir }}/{{ postgres_conf_file }}:/etc/{{ postgres_conf_file }}:ro"
+      - "{{ postgres_certs_dir }}:{{ postgres_container_certs_dir }}:ro"
+    env:
+      POSTGRES_USER: "{{ postgres_root_user }}"
+      POSTGRES_PASSWORD: "{{ postgres_root_password }}"
+      POSTGRES_DB: "{{ postgres_db }}"
+      POSTGRES_HOST_AUTH_METHOD: "{{ postgres_pw_auth_method }}"
+      POSTGRES_INITDB_ARGS: "--auth-host={{ postgres_pw_auth_method }}"
+      TZ: "Europe/Berlin"
+
+- name: Pausiere für 30s, wenn das Volume neu erstellt wurde
+  ansible.builtin.pause:
+    seconds: 30
+  when: volume_created.changed
+
+- name: Postgres hba_conf in den Container kopieren, nachdem die Initialisierung gelaufen ist
+  community.docker.docker_container_copy_into:
+    container: "{{ postgres_container_name }}"
+    path: "{{ postgres_config_dir }}/{{ postgres_hba_file }}"
+    container_path: "{{ postgres_container_data_dir }}/{{ postgres_hba_file }}"
+    owner_id: "{{ postgres_user_id }}"
+    group_id: "{{ postgres_user_id }}"
+    mode: 0600
+  register: copy_hba_conf
+
+- name: Postgres Container neustarten, nachdem die Config kopiert wurde
+  community.docker.docker_container:
+    name: "{{ postgres_container_name }}"
+    image: "postgres:{{ postgres_image }}"
+    state: started
+    restart: true
+  when: copy_hba_conf.changed
+
+- name: SQL-File wieder leeren
+  ansible.builtin.copy:
+    content: ""
+    dest: "{{ postgres_config_dir }}/{{ postgres_initial_file }}"
+    owner: root
+    mode: '0600'

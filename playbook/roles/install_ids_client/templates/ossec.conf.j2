@@ -1,0 +1,22 @@
+<ossec_config>
+    <client>
+        <server>
+            <address>{{ ids_server_address }}</address>
+            <protocol>tcp</protocol>
+            <max_retries>{{ ids_agent_max_retries }}</max_retries>
+            <retry_interval>5</retry_interval>
+        </server>
+        <enrollment>
+            <enabled>yes</enabled>
+            <manager_address>{{ ids_server_address }}</manager_address>
+            {% if ids_agent_group is defined and ids_agent_group != '' %}
+            <groups>{{ ids_agent_group }}</groups>
+            {% endif %}
+            <ssl_cipher>{{ ssl_cipher_list }}</ssl_cipher>
+        </enrollment>
+        <config-profile>{{ ids_agent_config_profile }}</config-profile>
+        <notify_time>30</notify_time>
+        <time-reconnect>120</time-reconnect>
+        <auto_restart>yes</auto_restart>
+    </client>
+</ossec_config>

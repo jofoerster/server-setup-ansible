@@ -1,0 +1,6 @@
+- name: Postgres Repo und Postgres-Client installieren
+  ansible.builtin.include_role:
+    name: install_postgres_client
+
+- name: Postgres Backup aufsetzen
+  ansible.builtin.include_tasks: setup_backup.yml

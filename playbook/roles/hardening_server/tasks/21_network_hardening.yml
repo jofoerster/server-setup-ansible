@@ -1,0 +1,37 @@
+---
+
+- name: "Req-17 IPv4 protocol stack must be securely configured."  # noqa: name[template]
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/80-ipv4-hardening.conf
+  loop: "{{ hardening_linux_ipv4_dict | dict2items }}"
+
+- name: "Req-18 IPv6 protocol stack must be securely configured."  # noqa: name[template]
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/80-ipv6-hardening.conf
+  ignore_errors: true
+  loop: "{{ hardening_linux_ipv6_dict | dict2items }}"
+  when:
+    - hardening_linux_ipv6_enabled
+
+- name: "Req-18 Disable IPv6."  # noqa: name[template]
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/80-ipv6-hardening.conf
+  ignore_errors: true
+  loop: "{{ hardening_linux_ipv6_disabled_dict | dict2items }}"
+  when:
+    - not hardening_linux_ipv6_enabled

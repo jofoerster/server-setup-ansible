@@ -1,0 +1,7 @@
+---
+- name: Setup IDS-Clients
+  hosts: ids-clients
+  gather_facts: true
+  become: true
+  roles:
+    - install_ids_client

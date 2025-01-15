@@ -1,0 +1,33 @@
+---
+
+- name: "Req-18 Enable IPv6. Part2"
+  ansible.builtin.lineinfile:
+    path: "{{ grub_default_path }}"
+    regexp: '({{ item }}=".*)(\sipv6.disable=\d)(.*")'
+    line: '\1\3'
+    backrefs: true
+  notify:
+    - Update grub
+    - Server neustarten
+  with_items:
+    - GRUB_CMDLINE_LINUX
+    - GRUB_CMDLINE_LINUX_DEFAULT
+  when:
+    - hardening_linux_ipv6_enabled
+
+- name: "Req-18 Disable IPv6. Part2"
+  ansible.builtin.lineinfile:
+    state: present
+    path: "{{ grub_default_path }}"
+    backrefs: true
+    regexp: '^({{ item }}=(?!.*ipv6.disable)\"[^\"]*)(\".*)'
+    line: '\1 ipv6.disable=1\2'
+  notify:
+    - Update grub
+    - Server neustarten
+  with_items:
+    - GRUB_CMDLINE_LINUX
+    - GRUB_CMDLINE_LINUX_DEFAULT
+  when:
+    - not hardening_linux_ipv6_enabled
+

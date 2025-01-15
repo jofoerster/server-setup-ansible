@@ -1,0 +1,10 @@
+# Drop connection (agains DoS attacks)
+
+SecRuleUpdateActionById 959100 "t:none,drop"
+SecRuleUpdateActionById 949110 "t:none,drop"
+
+# Allow numeric IPs in the Host header
+SecRuleRemoveById 920350
+
+# Ignore RFI rule for callbackUrl
+SecRuleRemoveById 931100

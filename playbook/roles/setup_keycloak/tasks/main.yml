@@ -1,0 +1,100 @@
+- name: Create Keycloak directories with secure permissions
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0700'
+    owner: "{{ keycloak_user_id }}"
+    group: "{{ keycloak_group_id }}"
+    recurse: yes
+  loop: # create all the needed directories
+    - "{{ keycloak_dir }}"
+    - "{{ keycloak_client_certs_dir }}"
+    - "{{ keycloak_server_certs_dir }}"
+
+# Client Certs generieren für DB-Verbindung
+
+- name: SSL-Client Cert für Keycloak-User generieren
+  ansible.builtin.include_role:
+    name: generate_ssl_certs
+  vars:
+    ssl_selected_server: "{{ ansible_hostname }}"
+    ssl_common_name: "{{ postgres_keycloak_user }}"
+    ssl_dest_dir: "{{ keycloak_client_certs_dir }}"
+    ssl_cert_validity_duration: "{{ client_cert_validity }}"
+    ssl_file_owner: "{{ keycloak_user_id }}"
+    ssl_key_usage_list: "{{ ssl_client_cert_key_usage_list }}"
+    ssl_extended_key_usage_list:
+      - clientAuth
+    ssl_subject_alt_name_list:
+      - "DNS:{{ postgres_keycloak_user }}"
+
+- name: PrivateKey von ClientCerts umwandeln
+  ansible.builtin.command:
+    cmd: "openssl pkcs8 -topk8 -inform PEM -in {{ keycloak_client_certs_dir }}/{{ ssl_key_file_name }} -outform DER -out {{ keycloak_client_certs_dir }}/{{ keycloak_converted_key_name }} -nocrypt"
+
+- name: Neuer PrivateKey hat richtige Rechte
+  ansible.builtin.file:
+    path: "{{ keycloak_client_certs_dir }}/{{ keycloak_converted_key_name }}"
+    state: file
+    mode: '0600'
+    owner: "{{ keycloak_user_id }}"
+    group: "{{ keycloak_group_id }}"
+
+- name: Generate SSL-Certs for Server
+  ansible.builtin.include_role:
+    name: generate_ssl_certs
+  vars:
+    ssl_selected_server: "{{ ansible_hostname }}"
+    ssl_common_name: "{{ keycloak_full_domain }}"
+    ssl_dest_dir: "{{ keycloak_server_certs_dir }}"
+    ssl_output_as_fullchain: true
+    ssl_cert_validity_duration: "{{ server_cert_validity }}"
+    ssl_file_owner: "{{ keycloak_user_id }}"
+    ssl_key_usage_list: "{{ ssl_server_cert_key_usage_list }}"
+    ssl_extended_key_usage_list:
+      - serverAuth
+    ssl_subject_alt_name_list:
+      - "DNS:{{ keycloak_full_domain }}"
+      - "DNS:{{ auth_full_domain }}"
+      - "DNS:{{ ansible_hostname }}"
+      - "IP:{{ keycloak_server_address }}"
+
+- name: Keycloak Config kopieren
+  ansible.builtin.template:
+    src: "{{ keycloak_conf_file }}.j2"
+    dest: "{{ keycloak_dir }}/{{ keycloak_conf_file }}"
+    mode: '0600'
+    owner: "{{ keycloak_user_id }}"
+    group: "{{ keycloak_group_id }}"
+
+- name: Keycloak-Traffic erlauben
+  ansible.builtin.include_role:
+    name: add_firewall_rule
+  vars:
+    firewall_rule_protocol: "tcp"
+    firewall_rule_host_port: "{{ keycloak_server_port }}"
+    firewall_rule_container_port: "{{ keycloak_docker_port }}"
+#    firewall_rule_from_ip: "{{ backend_server_ip }}"
+
+- name: Bestehenden Container löschen, falls einer existiert
+  community.docker.docker_container:
+    name: "{{ keycloak_container_name }}"
+    state: absent
+  ignore_errors: yes
+
+- name: Keycloak-Container deployen
+  community.docker.docker_container:
+    name: "{{ keycloak_container_name }}"
+    image: "{{ keycloak_image }}"
+    command: "--config-file=/etc/{{ keycloak_conf_file }} start"
+    state: started
+    restart: true
+    restart_policy: unless-stopped
+    network_mode: "{{ docker_network_name }}"
+    ports:
+      - "{{ keycloak_server_port }}:{{ keycloak_docker_port }}"
+    volumes:
+      - "{{ keycloak_dir }}/{{ keycloak_conf_file }}:/etc/{{ keycloak_conf_file }}:ro"
+      - "{{ keycloak_client_certs_dir}}/{{ ssl_ca_file_name }}:{{ keycloak_container_conf_dir }}/{{ ssl_ca_file_name }}"
+      - "{{ keycloak_client_certs_dir }}:{{ keycloak_container_client_certs_dir }}"
+      - "{{ keycloak_server_certs_dir }}:{{ keycloak_container_server_certs_dir }}"

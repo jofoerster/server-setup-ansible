@@ -1,0 +1,59 @@
+---
+
+# pre tasks
+- name: "Install required packages"  # noqa: name[template]
+  ansible.builtin.package:
+    name: "{{ ubuntu_pam_package_list }}"
+    state: present
+
+# Needed to ensure 'su' (switch user) is working properly
+- name: "Ensure SUID bit is set for 'su' executable"
+  ansible.builtin.file:
+    path: '/usr/bin/su'
+    mode: 'u+s'
+    state: 'file'
+
+# login.defs
+- name: "Req-53 Password proctection: use hashing func, keep at least 1 day, change after 365 days."  # noqa: name[template]
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: "^{{ item.key }}\\s+.*"
+    line: "{{ item.key }} {{ item.value }}"
+    state: present
+  loop: "{{ hardening_linux_login_defs_dict | dict2items }}"
+
+
+# PAM templates (default files)
+- name: Gather default PAM templates
+  ansible.builtin.set_fact:
+    pam_default_template_list: "{{ lookup('fileglob', role_path + '/templates/pam/default/*.j2') }}"
+  when:
+    - hardening_linux_pam_use_default
+
+- name: "Deploy PAM default files"  # noqa: name[template]
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "{{ hardening_linux_pam_dir }}/{{ item | basename | splitext | first }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ pam_default_template_list.split(',') }}"
+  when:
+    - hardening_linux_pam_use_default
+
+
+# PAM templates (hardening)
+- name: Gather PAM templates
+  ansible.builtin.set_fact:
+    pam_template_list: "{{ lookup('fileglob', role_path + template_path + '*.j2') }}"
+
+- name: "Req-54 until 59"  # noqa: name[template]
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "{{ hardening_linux_pam_dir }}/{{ item | basename | splitext | first }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ pam_template_list.split(',') }}"
+  notify:
+    - Trigger sssd external

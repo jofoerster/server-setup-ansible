@@ -1,0 +1,142 @@
+---
+
+- name: "Req-03 Unused software must not be installed or must be uninstalled."  # noqa: name[template]
+  ansible.builtin.package:
+    state: absent
+    name: "{{ hardening_linux_packages_list }}"
+
+- name: "Req-06 Ensure hardening mount options for 'shared memory' are set"
+  ansible.posix.mount:
+    path: "{{ item.key }}"
+    opts: "{{ item.value.opt_list | join(',') }}"
+    fstype: "{{ item.value.fstype }}"
+    src: "{{ item.value.src }}"
+    state: "mounted"
+  loop: "{{ hardening_linux_shm_dict | dict2items }}"
+  when: item.key != None and item.value != None
+
+- name: "Req-07 Automounting of filesystems using 'autofs' must be disabled."  # noqa: name[template]
+  ansible.builtin.package:
+    state: absent
+    name: autofs
+
+- name: "Req-09 ensure '/etc/cron.deny' is not present."  # noqa: name[template]
+  ansible.builtin.file:
+    path: /etc/cron.deny
+    state: absent
+
+- name: "Req-09 The use of 'cron' must be restricted to authorized users."  # noqa: name[template]
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/cron.allow.j2"
+    dest: /etc/cron.allow
+    mode: '0600'
+    owner: root
+    group: root
+
+# compliance check script, this substitutes single commands
+- name: "Ensure compliance scripts directory exists"
+  ansible.builtin.file:
+    path: "{{ hardening_linux_script_path }}"
+    mode: '0755'
+    owner: root
+    group: root
+    state: directory
+
+- name: "Ensure compliance check script exists"
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/{{ hardening_linux_script_name }}.j2"
+    dest: "{{ hardening_linux_script_path }}/{{ hardening_linux_script_name }}"
+    mode: '0755'
+    owner: root
+    group: root
+# END compliance check script
+
+- name: "Req-10 Sticky bit must be set on all world-writable directories: gather directories"  # noqa: name[template]
+  ansible.builtin.shell: |
+    {{ hardening_linux_script_path }}/{{ hardening_linux_script_name }} req_10
+  args:
+    executable: /bin/bash
+  register: find_sticky
+  changed_when: false
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: "Req-10 Sticky bit must be set on all world-writable directories."  # noqa: name[template]
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: o+t
+    state: directory
+  with_items: "{{ find_sticky.stdout_lines | default([]) }}"
+
+- name: "Req-11 No regular files that are world writable must exist: gather files"  # noqa: name[template]
+  ansible.builtin.shell: |
+    {{ hardening_linux_script_path }}/{{ hardening_linux_script_name }} req_11
+  args:
+    executable: /bin/bash
+  register: find_files
+  changed_when: false
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: "Req-11 No regular files that are world writable must exist."  # noqa: name[template]
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: o-w
+  with_items: "{{ find_files.stdout_lines | default([]) }}"
+
+- name: "Req-12 Sessions must be automatically terminated."  # noqa: name[template]
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/sessiontimeout.sh.j2"
+    dest: /etc/profile.d/sessiontimeout.sh
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: "Req-13 The default user 'umask' must be 027 or more restrictive."  # noqa: name[template]
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: "^UMASK\\s+.*"
+    line: "UMASK {{ hardening_linux_umask }}"
+    state: present
+
+- name: "Req-14 Not needed SUID and SGID bits must be removed from executables"  # noqa: name[template]
+  ansible.builtin.shell: |
+    {{ hardening_linux_script_path }}/{{ hardening_linux_script_name }} req_14
+  args:
+    executable: /bin/bash
+  register: found_executables
+  ignore_errors: "{{ ansible_check_mode }}"
+  changed_when: false
+
+- name: "Req-14 compare allowed executables with found executables"  # noqa: name[template]
+  ansible.builtin.set_fact:
+    compared_executables: "{{ found_executables.stdout_lines | default([]) | difference(hardening_linux_allowed_executables_list) }}"
+
+- name: "Req-14 remove suid and sgid bit from executables that are not allowed"  # noqa: name[template]
+  ansible.builtin.file:
+    path: '{{ item }}'
+    mode: 'a-s'
+    state: 'file'
+    follow: 'yes'
+  with_items: "{{ compared_executables }}"
+
+- name: "Req-15 Core dump crash reporting software must be removed."  # noqa: name[template]
+  ansible.builtin.package:
+    state: absent
+    name: "{{ hardening_linux_crash_packages_list }}"
+
+- name: "Req-15 Core dumps must be disabled."  # noqa: name[template]
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/50-coredump.conf
+  loop: "{{ hardening_linux_core_dump_dict | dict2items }}"
+
+- name: "Req-16 Protection against buffer overflows must be enabled."  # noqa: name[template]
+  ansible.posix.sysctl:
+    name: kernel.randomize_va_space
+    value: '2'
+    sysctl_set: true
+    state: present
+    reload: true

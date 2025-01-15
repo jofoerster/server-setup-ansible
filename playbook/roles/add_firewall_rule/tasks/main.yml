@@ -1,0 +1,29 @@
+- name: Check, ob benötigte Vars gesetzt wurden
+  ansible.builtin.assert:
+    that:
+      - firewall_rule_protocol
+      - firewall_rule_host_port
+      - firewall_rule_container_port
+    fail_msg: "Nicht alle benötigten Vars für das Playbook wurden gesetzt"
+
+# UFW braucht für Docker immer eine Incoming + Forward Regel
+# Incoming Regel muss übereinstimmen mit dem Host-Port, Forward/Route Regel mit dem Container-Port
+- name: Firewall Regel hinzufügen
+  community.general.ufw:
+    rule: allow
+    direction: in
+    protocol: "{{ firewall_rule_protocol }}"
+    port: "{{ rule.port }}"
+    interface: "{{ rule.interface }}"
+    route: "{{ rule.route }}"
+    from_ip: "{{ rule.from_ip }}"
+  loop:
+    - { port: "{{ firewall_rule_host_port }}", route: "false", interface: "{{ server_network_interface_name }}", from_ip: "{{ firewall_rule_from_ip | default(omit)}}"}
+    - { port: "{{ firewall_rule_host_port }}", route: "false", interface: "{{ docker_network_interface_name }}", from_ip: "{{ docker_network_subnet }}"}
+    - { port: "{{ firewall_rule_container_port }}", route: "true", interface: "{{ server_network_interface_name }}", from_ip: "{{ firewall_rule_from_ip | default(omit)}}"}
+  loop_control:
+    loop_var: rule
+
+- name: Firewall Regeln neuladen
+  community.general.ufw:
+    state: reloaded

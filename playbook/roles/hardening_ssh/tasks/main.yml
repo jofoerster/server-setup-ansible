@@ -1,0 +1,20 @@
+---
+
+- name: "Check if listening interface is set"
+  ansible.builtin.assert:
+    that:
+      - global_ssh_interface_list
+    fail_msg: "please set a value for 'global_ssh_interface_list'"  # noqa: yaml[line-length]
+
+- name: Run host keys task (Req 3.04-27)
+  ansible.builtin.include_tasks: host_keys.yml
+
+- name: Run moduli task (Req 3.04-28)
+  ansible.builtin.include_tasks: moduli.yml
+
+- name: Run rendering config task
+  ansible.builtin.include_tasks: sshd_config.yml
+
+- name: Default-User wird für den Login deaktiviert
+  ansible.builtin.command:
+    cmd: usermod -L -e 1 user

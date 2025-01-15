@@ -1,0 +1,107 @@
+- name: Erstelle benötigte Ordner
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ nginx_docker_user }}"
+    group: "{{ nginx_docker_user }}"
+  loop:
+    - "{{ nginx_directory }}"
+    - "{{ nginx_ssl_cert_directory }}"
+    - "{{ modsecurity_d_directory }}"
+
+- name: Nginx Config kopieren
+  ansible.builtin.template:
+    src: "nginx_conf.j2"
+    dest: "{{ nginx_directory }}/nginx.conf"
+    mode: '0644'
+    owner: "{{ nginx_docker_user }}"
+
+- name: ModSecurity Rule Exclusions kopieren
+  ansible.builtin.template:
+    src: "RESPONSE-999-EXCLUSION-RULES-AFTER-CRS_conf.j2"
+    dest: "{{ modsecurity_d_directory }}/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf"
+    mode: '0644'
+    owner: "{{ nginx_docker_user }}"
+
+- name: SSL-Certs generieren
+  ansible.builtin.include_role:
+    name: generate_ssl_certs
+  vars:
+    ssl_selected_server: "{{ server_host_name }}"
+    ssl_common_name: "{{ frontend_full_domain }}"
+    ssl_dest_dir: "{{ nginx_ssl_cert_directory }}"
+    ssl_cert_validity_duration: "{{ server_cert_validity }}"
+    ssl_file_owner: "{{ nginx_docker_user }}"
+    ssl_key_usage_list: "{{ ssl_server_cert_key_usage_list }}"
+    ssl_extended_key_usage_list:
+      - serverAuth
+    ssl_subject_alt_name_list:
+      - "DNS:{{ server_host_name }}"
+      - "DNS:{{ frontend_full_domain }}"
+      - "DNS:{{ revproxy_full_domain }}"
+      - "DNS:{{ revproxy_container_name }}"
+      - "IP:{{ revproxy_server_address }}"
+  loop: "{{ ansible_play_hosts }}"
+  loop_control:
+    loop_var: server_host_name
+
+- name: DH-Parameter generieren
+  community.crypto.openssl_dhparam:
+    path: "{{ nginx_ssl_cert_directory }}/ssl-dhparam.pem"
+    size: "{{ nginx_dhparam_size }}"
+    owner: "{{ nginx_docker_user }}"
+    mode: '0600'
+
+- name: HTTPS-Traffic erlauben
+  ansible.builtin.include_role:
+    name: add_firewall_rule
+  vars:
+    firewall_rule_protocol: "tcp"
+    firewall_rule_host_port: "{{ nginx_host_port }}"
+    firewall_rule_container_port: "{{ revproxy_container_port }}"
+
+- name: Bestehenden Container löschen, falls einer existiert
+  community.docker.docker_container:
+    name: "{{ revproxy_container_name }}"
+    state: absent
+  ignore_errors: yes
+
+- name: Nginx Container erstellen
+  community.docker.docker_container:
+    name: "{{ revproxy_container_name }}"
+    image: "{{ nginx_container_image }}"
+    network_mode: "{{ docker_network_name }}"
+    state: started
+    restart: true
+    restart_policy: "unless-stopped"
+    ports:
+      - "{{ nginx_host_port }}:{{ revproxy_container_port }}"
+    volumes:
+      - "{{ nginx_directory }}/nginx.conf:/etc/nginx/templates/nginx.conf.template:rw,Z"
+      - "{{ modsecurity_d_directory }}/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf:/etc/modsecurity.d/owasp-crs/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf:rw,Z"
+      - "{{ nginx_ssl_cert_directory }}:/etc/nginx/ssl:ro,Z"
+    env:
+      LOGLEVEL: "error"
+      MODSEC_RULE_ENGINE: "On"
+      MODSEC_AUDIT_ENGINE: "RelevantOnly"
+      MODSEC_DEBUG_LOGLEVEL: "0"
+      PARANOIA: "2"
+      EXECUTING_PARANOIA: "2"
+      ENFORCE_BODYPROC_URLENCODED: "1"
+      ANOMALY_INBOUND: "5"
+      ANOMALY_OUTBOUND: "4"
+      ALLOWED_METHODS: "GET POST PUT DELETE OPTIONS"
+      ALLOWED_HTTP_VERSIONS: "HTTP/1.1 HTTP/2"
+      RESTRICTED_EXTENSIONS: ".cmd/ .com/ .config/ .dll/"
+      RESTRICTED_HEADERS: "/proxy/ /if/"
+      STATIC_EXTENSIONS: "/.jpg/ /.jpeg/ /.png/ /.gif/"
+      MAX_NUM_ARGS: "64"
+      ARG_NAME_LENGTH: "30"
+      ARG_LENGTH: "150"
+      TOTAL_ARG_LENGTH: "6400"
+      MAX_FILE_SIZE: "100000"
+      COMBINED_FILE_SIZES: "1000000"
+      TIMEOUT: "30"
+      PORT: "{{ revproxy_container_port }}"
+      BACKEND: "{{ backend_actual_server_address }}:{{ backend_actual_server_port }}"

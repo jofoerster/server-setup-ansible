@@ -1,0 +1,7 @@
+---
+- name: Mail-Server konfigurieren
+  hosts: mail
+  gather_facts: true
+  become: true
+  roles:
+    - setup_mail

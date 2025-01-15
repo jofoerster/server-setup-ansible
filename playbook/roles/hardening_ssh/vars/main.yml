@@ -1,0 +1,123 @@
+---
+
+### common vars
+global_ssh_interface_list:
+  - "{{ server_network_interface_name }}"
+hardening_ssh_use_secondaries: true
+hardening_ssh_service_ip_list: false
+
+hardening_ssh_addressfamily: "inet"
+hardening_ssh_hostkey_directory: "/etc/ssh"
+hardening_ssh_hostkey_list:
+  - rsa
+  - ecdsa
+  - ed25519
+hardening_ssh_default_allowgroups_list:
+  - ssh-login
+  - "{{ ssh_ldap_group }}"
+
+hardening_ssh_additional_allowgroups_list: "{{ hardening_ssh_default_allowgroups_list + ssh_specific_ldap_groups|default([]) }}"
+
+hardening_ssh_authorizedkeysfile: "%h/.ssh/authorized_keys"
+hardening_ssh_tcpkeepalive: "yes"
+hardening_ssh_gssapiauthentication: "no"
+hardening_ssh_gssapicleanupcredentials: "yes"
+hardening_ssh_usedns: "no"
+hardening_ssh_printmotd: "no"
+hardening_ssh_printlastlog: "yes"
+hardening_ssh_banner: "/etc/ssh/banner.txt"
+hardening_ssh_banner_template: "{{ role_path }}/templates/banner.txt.j2"
+hardening_ssh_x11uselocalhost: "yes"
+hardening_ssh_clientaliveinterval: 60
+hardening_ssh_clientalivecountmax: 10
+hardening_ssh_match_group_authorizedkeyscommand: "/usr/local/bin/ssh_ldap_key"
+hardening_ssh_match_group_authorizedkeyscommanduser: "nobody"
+
+hardening_ssh_protocol: 2
+hardening_ssh_maxstartups: "10:30:100"
+
+# only RHEL9, Ubuntu22: sntrup761x25519-sha512@openssh.com
+hardening_ssh_kexalgorithms_list:
+  - curve25519-sha256@libssh.org
+  - curve25519-sha256
+  - ecdh-sha2-nistp521
+  - ecdh-sha2-nistp384
+  - ecdh-sha2-nistp256
+  - diffie-hellman-group18-sha512
+  - diffie-hellman-group16-sha512
+  - diffie-hellman-group-exchange-sha256
+hardening_ssh_kexalgorithms: "{{ hardening_ssh_kexalgorithms_list | join(',') }}"
+
+# all supported
+hardening_ssh_ciphers_list:
+  - aes256-gcm@openssh.com
+  - aes128-gcm@openssh.com
+  - chacha20-poly1305@openssh.com
+  - aes256-ctr
+  - aes192-ctr
+  - aes128-ctr
+hardening_ssh_ciphers: "{{ hardening_ssh_ciphers_list | join(',') }}"
+
+# all supported
+hardening_ssh_macs_list:
+  - hmac-sha2-512-etm@openssh.com
+  - hmac-sha2-512
+  - hmac-sha2-256-etm@openssh.com
+  - hmac-sha2-256
+hardening_ssh_macs: "{{ hardening_ssh_macs_list | join(',') }}"
+
+# no RHEL8: sk-ecdsa-sha2-nistp256@openssh.com, no in all: rsa-sha2-512,rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256,rsa-sha2-256-cert-v01@openssh.com
+hardening_ssh_hostkeyalgorithms_list:
+  - ssh-ed25519
+  - ssh-ed25519-cert-v01@openssh.com
+  - ecdsa-sha2-nistp521
+  - ecdsa-sha2-nistp521-cert-v01@openssh.com
+  - ecdsa-sha2-nistp384
+  - ecdsa-sha2-nistp384-cert-v01@openssh.com
+  - ecdsa-sha2-nistp256
+  - ecdsa-sha2-nistp256-cert-v01@openssh.com
+hardening_ssh_hostkeyalgorithms: "{{ hardening_ssh_hostkeyalgorithms_list | join(',') }}"
+
+hardening_ssh_loglevel: "VERBOSE"
+hardening_ssh_logingracetime: 60
+hardening_ssh_maxauthtries: 6
+hardening_ssh_permitrootlogin: "no"  # non-compliant, dependency to ssh-key-distribution via ZAM
+hardening_ssh_strictmodes: "yes"
+hardening_ssh_authenticationmethods: "publickey"
+hardening_ssh_pubkeyauthentication: "yes"
+hardening_ssh_passwordauthentication: "no"
+hardening_ssh_kbdinteractiveauthentication: "no"
+hardening_ssh_challengeresponseauthentication: "no"
+hardening_ssh_usepam: "yes"
+hardening_ssh_hostbasedauthentication: "no"
+hardening_ssh_ignorerhosts: "yes"
+hardening_ssh_maxsessions: 10
+hardening_ssh_permittunnel: "no"
+hardening_ssh_allowtcpforwarding: "no"
+hardening_ssh_allowagentforwarding: "no"
+hardening_ssh_gatewayports: "no"
+hardening_ssh_x11forwarding: "no"
+hardening_ssh_permituserenvironment: "no"
+hardening_ssh_permitemptypasswords: "no"
+hardening_ssh_rsa_key_size: 3072
+hardening_ssh_set_moduli: true
+hardening_ssh_moduli_path: "/etc/ssh/moduli"
+hardening_ssh_moduli_temp_path: "{{ hardening_ssh_moduli_path | splitext | join('.save') }}"
+hardening_ssh_moduli_threshold: 3071
+
+## sftp
+hardening_ssh_sftp_subsystem: "internal-sftp"
+hardening_ssh_sftp_match_group: false
+hardening_ssh_sftp_chrootdirectory: "/data/sftpchroot/home/%u"
+# needed to be commented out for default filter
+# hardening_ssh_sftp_x11forwarding: null
+# hardening_ssh_sftp_allowtcpforwarding: null
+# hardening_ssh_sftp_allowagentforwarding: null
+# hardening_ssh_sftp_passwordauthentication: null
+# hardening_ssh_sftp_permitrootlogin: null
+hardening_ssh_sftp_forcecommand_option: "-l VERBOSE"
+hardening_ssh_sftp_forcecommand: "{{ [hardening_ssh_sftp_subsystem, hardening_ssh_sftp_forcecommand_option] | join(' ') }}"
+
+hardening_ssh_syslogfacility: "AUTHPRIV"
+hardening_ssh_sshd_group: "ssh"
+hardening_ssh_sshd_service_name: "sshd"

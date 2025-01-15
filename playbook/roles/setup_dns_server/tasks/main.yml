@@ -1,0 +1,103 @@
+- name: Install BIND DNS server
+  package:
+    name: bind9
+    state: present
+
+- name: Create Directories for bind server
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ dns_bind_user }}"
+    group: "{{ dns_bind_group }}"
+    recurse: yes
+  loop: # create all the needed directories
+    - "{{ dns_bind_directory }}"
+    - "{{ dns_zones_directory }}"
+
+- name: Generate SSL-Certs for DNS
+  ansible.builtin.include_role:
+    name: generate_ssl_certs
+  vars:
+    ssl_selected_server: "{{ server_host_name }}"
+    ssl_common_name: "{{ nameserver1_full_domain }}"
+    ssl_dest_dir: "{{ dns_working_directory }}"
+    ssl_cert_validity_duration: "{{ server_cert_validity }}"
+    ssl_file_owner: "{{ dns_bind_user }}"
+    ssl_file_group: "{{ dns_bind_group }}"
+    ssl_key_usage_list: "{{ ssl_server_cert_key_usage_list }}"
+    ssl_extended_key_usage_list:
+      - serverAuth
+    ssl_subject_alt_name_list:
+      - "DNS:{{ nameserver1_full_domain }}"
+      - "DNS:{{ nameserver2_full_domain }}"
+      - "IP:{{ nameserver1_server_address }}"
+      - "IP:{{ nameserver2_server_address }}"
+  loop: "{{ ansible_play_hosts }}"
+  loop_control:
+    loop_var: server_host_name
+
+- name: Configure named.conf.options for net queries
+  ansible.builtin.template:
+    src: "{{ dns_conf_options_file }}.j2"
+    dest: "{{ dns_bind_directory }}/{{ dns_conf_options_file }}"
+    owner: "{{ dns_bind_user }}"
+    group: "{{ dns_bind_group }}"
+    mode: '0644'
+
+- name: Configure named.conf.local for zones
+  ansible.builtin.template:
+    src: "named.conf.local.j2"
+    dest: "{{ dns_bind_directory }}/named.conf.local"
+    owner: "{{ dns_bind_user }}"
+    group: "{{ dns_bind_group }}"
+    mode: '0644'
+
+- name: Configure zones files
+  ansible.builtin.template:
+    src: "db.zone.j2"
+    dest: "{{ dns_zones_directory }}/{{ item.file }}"
+    owner: "{{ dns_bind_user }}"
+    group: "{{ dns_bind_group }}"
+    mode: '0644'
+  loop: "{{ dns_zones }}"
+
+- name: Enable logging
+  lineinfile:
+    dest: "{{ dns_bind_directory }}/named.conf"
+    line: "include \"{{ dns_bind_directory }}/{{ dns_conf_logging_file }}\";"
+    state: present
+    mode: '0644'
+
+- name: Create logging configuration
+  ansible.builtin.copy:
+    src: "templates/{{ dns_conf_logging_file }}"
+    dest: "{{ dns_bind_directory }}/{{ dns_conf_logging_file }}"
+    owner: "{{ dns_bind_user }}"
+    group: "{{ dns_bind_group }}"
+    mode: '0644'
+
+- name: DNS Verbindungen erlauben
+  community.general.ufw:
+    direction: in
+    rule: allow
+    port: "{{ dns_port }}"
+    protocol: tcp
+    interface: "{{ server_network_interface_name }}"
+    from_ip: "{{ dns_internal_network }}"
+
+
+- name: DNS Verbindungen erlauben
+  community.general.ufw:
+    direction: in
+    rule: allow
+    port: "{{ dns_port_2 }}"
+    protocol: udp
+    interface: "{{ server_network_interface_name }}"
+    from_ip: "{{ dns_internal_network }}"
+
+- name: restart bind9
+  service:
+    name: bind9
+    state: restarted
+    enabled: yes

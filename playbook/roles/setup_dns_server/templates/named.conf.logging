@@ -1,0 +1,9 @@
+logging {
+    channel default_syslog {
+        syslog daemon;
+        severity info;
+    };
+
+    category default { default_syslog; };
+    category queries { default_syslog; };
+};

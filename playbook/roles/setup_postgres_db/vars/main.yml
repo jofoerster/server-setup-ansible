@@ -1,0 +1,42 @@
+---
+postgres_dir: "/data/postgres"
+postgres_data_volume: "postgres_volume"
+postgres_certs_dir: "{{ postgres_dir }}/certs"
+postgres_config_dir: "{{ postgres_dir }}/config"
+
+postgres_container_dir: "/var/lib/postgresql"
+postgres_container_certs_dir: "{{ postgres_container_dir }}/certs"
+postgres_container_data_dir: "{{ postgres_container_dir }}/data"
+
+postgres_user_id: 70
+postgres_own_cert_validity: 730
+
+postgres_root_user: "superuser"
+postgres_root_password: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  33313535333831353036363731356634643764613063333039336139613430333136343930633366
+  6531333339616264326231653866653139313363666237390a306565343638383636353135666261
+  34336166656331373538393838366437616165303862623335323431323438633462366531383261
+  3762663933396339610a626466666661633164376636346632383734383363373034616232353262
+  61366263633163393065323963623137373061396664373165616533316362653534346530396563
+  63643066326438396235393039663433313436313430656633383437653666356237303330343932
+  36376238613466306238646463306639356138653635316365326137656338633461643334323839
+  39663066333137366239
+
+postgres_conf_file: "postgresql.conf"
+postgres_hba_file: "pg_hba.conf"
+postgres_initial_file: "initial_script.sql"
+postgres_pw_auth_method: "scram-sha-256"
+postgres_cert_auth_method: "cert clientname=CN clientcert=verify-full"
+
+postgres_container_name: "postgres"
+postgres_image: "{{ postgres_version }}-alpine"
+postgres_max_connections: 100
+# IntialSQL
+postgres_initial_backend_default_list:
+  - "{{ postgres_backend_user }}"
+  - "{{ postgres_root_user }}"
+
+postgres_initial_keycloak_default_list:
+  - "{{ postgres_keycloak_user }}"
+  - "{{ postgres_root_user }}"

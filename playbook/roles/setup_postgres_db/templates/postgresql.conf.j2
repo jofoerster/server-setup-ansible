@@ -1,0 +1,23 @@
+ # Network settings
+ listen_addresses = '*'
+ port = {{ postgres_server_port }}
+ max_connections = {{ postgres_max_connections }}
+
+ # SSL configuration
+ ssl = on
+ ssl_ca_file = '{{ postgres_container_certs_dir }}/{{ ssl_ca_file_name }}'
+ ssl_cert_file = '{{ postgres_container_certs_dir }}/{{ ssl_cert_file_name }}'
+ ssl_key_file = '{{ postgres_container_certs_dir }}/{{ ssl_key_file_name }}'
+ ssl_ciphers = '{{ ssl_cipher_list }}'
+ ssl_prefer_server_ciphers = off
+ ssl_min_protocol_version = 'TLSv1.2'
+
+ # Security settings
+ password_encryption = {{ postgres_pw_auth_method }}
+ log_min_duration_statement = 1000
+ log_checkpoints = on
+ log_connections = on
+ log_disconnections = on
+ log_lock_waits = on
+ log_temp_files = 0
+ log_autovacuum_min_duration = 0

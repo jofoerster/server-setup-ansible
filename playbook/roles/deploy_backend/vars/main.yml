@@ -1,0 +1,45 @@
+---
+backend_ssl_client_directory: "/data/backend/ssl-certs"
+backend_converted_key_name: "db-ssl.pk8"
+
+backend_directory: "/data/backend"
+backend_container_ssl_client_directory: "/app/ssl-certs"
+backend_container_data: "/app/data"
+backend_env_file: ".env"
+
+backend_keycloak_realm: "secsys-backend"
+backend_keycloak_admin_client_secret: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  64343965636161336365653432323966666364633264343635666531326236316430613637393032
+  3564313362393638303232306266623763356137313735310a653265336630303831336433343164
+  37383638303238353230356235376535346361383734336132323332316532363036666538393134
+  3534633733396261310a643033333563656564636261303135383761326362623239633761646530
+  65383435303437373430383336663730333936333138363136343064366164326464343839623563
+  3737366638636237653464353430316234656636363934303932
+
+backend_mail_smtp_port: 25
+backend_noreply_mail: "noreply@wasser.eu"
+backend_mail_password: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  36303637363665333432653537346262313035376535356466393933656564323861653765393161
+  3264313430623763376531633463373034343138353861620a396139613361656464396534393564
+  62323932336234333865663837386634353131396439316634373836316162656235366137313430
+  6536636662373838630a613837656338313333383632626563373965353537316632636562316131
+  34303337373537376630343836343164636336366335336239303734656539626363
+
+
+backend_log_dir: "{{ backend_directory }}/logs"
+backend_container_log_dir: "/app/logs"
+backend_log_file_name: "backend.log"
+backend_log_max_history: "90"
+backend_log_max_file_size: "10MB"
+backend_log_total_size_cap: "3GB"
+
+backend_user_id: 1000
+backend_group_id: 0
+
+backend_container_name: "backend"
+backend_server_port: "{{ backend_actual_server_port }}"
+backend_docker_port: "8080"
+backend_image_name: "web/backend"
+backend_full_image_path: "{{ CI_REGISTRY }}/{{ registry_project }}/{{ backend_image_name }}"

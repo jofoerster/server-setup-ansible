@@ -1,0 +1,32 @@
+---
+### PAM
+hardening_linux_pam_dir: '/etc/pam.d'
+template_path: '/templates/pam/'
+hardening_linux_pam_use_default: false
+
+ubuntu_pam_package_list:
+  - libpam-sss
+  - libpam-pwquality
+  - cracklib-runtime
+
+# Req 53 Passwords must be protected by using hashing function. Passwords must be kept at least 1 day and must be changed latest after 365 days.
+hardening_linux_login_defs_dict:
+  ENCRYPT_METHOD: 'YESCRYPT'
+  PASS_MAX_DAYS: 365
+  PASS_MIN_DAYS: 1
+
+# Req 54 If PAM is used, it needs to be reconfigured to use strong salted password hash functions while doing many calculation rounds to protect passwords
+hardening_linux_pam_hash_function: "{{ hardening_linux_login_defs_dict.ENCRYPT_METHOD | lower }}"
+
+# Req 55 If PAM is used, password rules must be configured for PAM to force the use of passwords with a minimum length
+# of 12 characters and a combination of three out of the following categories: upper cases, lower case, numbers and special characters
+hardening_linux_pam_minlen: 12
+hardening_linux_pam_minclass: 3
+hardening_linux_pam_xcredit_value: 0   # setting credits to '0'
+
+# Req 57 If a password is used as an authentication attribute, the reuse of previous passwords must be prevented
+hardening_linux_pam_remember: 60
+
+# Req 58 If PAM is used, a protection against brute force and dictionary attacks that hinder password guessing must be configured in PAM
+hardening_linux_pam_deny: 5
+hardening_linux_pam_unlock_time: 600  # --> 10 min

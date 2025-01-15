@@ -1,0 +1,6 @@
+---
+- name: Setup Bind DNS Server
+  hosts: dns
+  become: true
+  roles:
+    - setup_dns_server

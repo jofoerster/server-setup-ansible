@@ -1,0 +1,41 @@
+---
+sssd_packages:
+  - sssd
+  - sssd-ldap
+  - sssd-tools
+  - ldap-utils
+  - libnss-sss
+  - openssl
+
+sssd_apparmor_package_list:
+  - apparmor
+  - apparmor-utils
+
+sssd_service_list:
+  - 'systemd-logind'
+  - 'sshd'
+  - 'sssd'
+
+sssd_entry_cache_timeout: 600
+sssd_search_timeouts: 5
+sssd_offline_failed_login_attempts: 7
+sssd_offline_account_cached_expiration_days: 2
+sssd_online_account_cached_expiration_days: 4
+
+sssd_filter_users: root,ldap,ansible,emergency,user
+sssd_filter_groups: root,ldap,ansible,emergency,user
+
+sssd_conf_file: "sssd.conf"
+sssd_nsswitch_conf_file: "nsswitch.conf"
+sssd_ssh_tool: "ssh_ldap_key"
+sssd_sudo_file_name: "51_sssd_group_su2root"
+
+sssd_ldap_search_base: "CN=Users,DC=wasser,DC=eu"
+sssd_ldap_bind_dn: "auth-login@wasser.eu"
+sssd_ldap_pw: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  33373465623130353463333138323866613663613031396164623366346462386163363361643031
+  3164633363623334326136313233613632343636373534610a353835613937613165363264633430
+  34643438313930313535303564323431643835373532663231356532326334366564613133633764
+  6465333435393531650a326230653534666564303131356361303335333564383361356164633764
+  6335

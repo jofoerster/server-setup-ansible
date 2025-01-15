@@ -1,0 +1,9 @@
+---
+- name: Installiere Linux-Pakete
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Pakete installieren
+      ansible.builtin.apt:
+        pkg: "{{ install_packages }}"

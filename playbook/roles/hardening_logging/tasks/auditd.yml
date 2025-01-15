@@ -1,0 +1,81 @@
+---
+
+- name: Ensure auditd is installed
+  ansible.builtin.package:
+    name: "{{ hardening_logging_auditd_package_list }}"
+    state: present
+
+- name: Ensure auditd path is present
+  ansible.builtin.file:
+    path: "{{ hardening_logging_auditd_path }}"
+    mode: '0750'
+    owner: root
+    group: root
+    state: directory
+
+- name: Roll out auditd.conf
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/auditd/auditd.conf.j2"
+    dest: "{{ hardening_logging_auditd_path }}/auditd.conf"
+    mode: '0640'
+    owner: root
+    group: root
+    force: true
+  notify:
+    - "{{ auditd_handler_name }}"
+
+- name: Ensure auditd is started and enabled
+  ansible.builtin.service:
+    name: auditd
+    state: started
+    enabled: true
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Ensure auditd plugins dir exists
+  ansible.builtin.file:
+    path: "{{ hardening_logging_auditd_syslog_plugin_path }}"
+    mode: '0750'
+    owner: root
+    group: root
+    state: directory
+
+- name: Roll out syslog.conf plugin
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/auditd/syslog.conf.j2"
+    dest: "{{ hardening_logging_auditd_syslog_plugin_path }}/syslog.conf"
+    mode: '0640'
+    owner: root
+    group: root
+    force: true
+  notify:
+    - "{{ auditd_handler_name }}"
+
+- name: Ensure rules.d directory exists
+  ansible.builtin.file:
+    path: "{{ hardening_logging_auditd_rules_path }}"
+    mode: '0750'
+    owner: root
+    group: root
+    state: directory
+
+- name: Ensure audit-syscall.rules exists
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/auditd/rules.d/audit-syscall.rules.j2"
+    dest: "{{ hardening_logging_auditd_rules_path }}/audit-syscall.rules"
+    mode: '0640'
+    owner: root
+    group: root
+    force: true
+  notify:
+    - "{{ auditd_handler_name }}"
+
+- name: Ensure audit.rules exists
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/auditd/rules.d/audit.rules.j2"
+    dest: "{{ hardening_logging_auditd_rules_path }}/audit.rules"
+    mode: '0640'
+    owner: root
+    group: root
+    force: true
+  notify:
+    - "{{ auditd_handler_name }}"

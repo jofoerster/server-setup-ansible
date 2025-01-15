@@ -1,0 +1,112 @@
+pid /tmp/nginx.pid;
+
+load_module modules/ngx_http_modsecurity_module.so;
+
+events {
+  worker_connections  4096;  ## Default: 1024
+}
+
+http {
+
+    modsecurity on;
+    modsecurity_rules_file /etc/modsecurity.d/setup.conf;
+
+    server_tokens off;
+    ## Start: Size Limits & Buffer Overflows ##
+    proxy_buffer_size   16k;
+    proxy_buffers   4 32k;
+    proxy_busy_buffers_size   32k;
+
+    #client_body_buffer_size  1K;
+    #client_header_buffer_size 1k;
+    #client_max_body_size 1k;
+    large_client_header_buffers 4 16k;
+    ## END: Size Limits & Buffer Overflows ##
+    client_body_timeout 8s;
+    client_header_timeout 8s;
+    keepalive_timeout 15s 15;
+    send_timeout 10s;
+
+    log_format compression '$remote_addr - $remote_user <$time_local> ' '"$request" $status $body_bytes_sent ' '"$http_referer" "$http_user_agent" "$gzip_ratio"';
+
+    upstream backend {
+        zone upstreams 64K;
+        server {{ backend_actual_server_address }}:{{ backend_actual_server_port }};
+        keepalive 2;
+    }
+
+    server {
+        gzip on;
+        gzip_vary on;
+        gzip_proxied any;
+        gzip_comp_level 6;
+        gzip_buffers 16 8k;
+        gzip_http_version 1.1;
+        gzip_min_length 256;
+        gzip_types application/json text/plain;
+
+        listen {{ revproxy_container_port }} ssl default_server;
+        http2  on;
+        server_name _;
+
+        ssl_certificate         /etc/nginx/ssl/{{ ssl_cert_file_name }};
+        ssl_certificate_key     /etc/nginx/ssl/{{ ssl_key_file_name }};
+        ssl_dhparam             /etc/nginx/ssl/{{ nginx_ssl_dhparam_name }};
+
+        ssl_session_cache shared:SSL:10m;
+        ssl_session_timeout 1d;
+        ssl_session_tickets off;
+
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers {{ ssl_cipher_list }};
+        ssl_prefer_server_ciphers off;
+
+        # health check endpoint
+        location /healthz {
+            access_log off;
+            add_header Content-Type text/plain;
+            return 200 "OK";
+        }
+
+        # Metrics endpoint
+        location /metrics/nginx {
+            access_log off;
+
+            proxy_store off;
+            stub_status;
+        }
+
+        # Error page
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+            root /usr/share/nginx/html;
+        }
+
+        set $frontend "http://{{ frontend_container_name }}:{{ frontend_actual_server_port }}";
+
+        location / {
+            resolver {{ docker_dns_resolver }};
+            proxy_pass $frontend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_next_upstream error timeout http_500;
+            autoindex off;
+            limit_except GET POST PATCH DELETE PUT { deny  all; }
+        }
+        location /{{ nginx_backend_path }}/ {
+            allow {{ docker_network_subnet }};
+            deny all;
+
+            proxy_pass http://backend/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_next_upstream error timeout http_500;
+            autoindex off;
+            limit_except GET POST PATCH DELETE PUT { deny  all; }
+        }
+    }
+}

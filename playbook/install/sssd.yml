@@ -1,0 +1,8 @@
+---
+- name: Setup SSSD/LDAP-Login on all servers
+  hosts: all
+  gather_facts: true
+  become: true
+  roles:
+    - emergency_user
+    - setup_sssd

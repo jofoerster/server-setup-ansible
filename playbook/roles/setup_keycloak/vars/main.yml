@@ -1,0 +1,30 @@
+---
+keycloak_dir: "/data/keycloak"
+keycloak_data_volume: "keycloak_volume"
+keycloak_client_certs_dir: "{{ keycloak_dir }}/client-certs"
+keycloak_server_certs_dir: "{{ keycloak_dir }}/server-certs"
+keycloak_container_dir: "/opt/keycloak"
+keycloak_container_client_certs_dir: "{{ keycloak_container_dir }}/client-certs"
+keycloak_container_server_certs_dir: "{{ keycloak_container_dir }}/server-certs"
+keycloak_container_conf_dir: "{{ keycloak_container_dir }}/conf/truststores"
+
+keycloak_user_id: 1000
+keycloak_group_id: 0
+keycloak_admin_username: "superuser"
+keycloak_admin_pw: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  35663963356339373964633739613363643264326431343265643937383433316564353162363264
+  3732353237633736663765646366383464356261653530320a343333313835393934623035333738
+  34666562363966366537653065633631306263303232663861373131633039346539323366613664
+  3861626638653561310a376263666563386466333232386139353565633463393338393437663161
+  63326361623432653730666565616164396433643538613139663935303964346139313262663034
+  35666639353564616633633531646566636661626333643266363961613730353830386666383134
+  62383434306139333935373836383661323530656462386337353233383331646535616338663839
+  61313331326535663633
+
+keycloak_converted_key_name: "postgresql.pk8"
+keycloak_docker_port: 8443
+
+keycloak_conf_file: "keycloak.conf"
+keycloak_container_name: "keycloak"
+keycloak_image: "quay.io/keycloak/keycloak:26.0"

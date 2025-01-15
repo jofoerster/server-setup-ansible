@@ -1,0 +1,72 @@
+- name: Erstelle benötigten Ordner
+  delegate_to: "{{ ssl_selected_server }}"
+  run_once: true
+  ansible.builtin.file:
+    path: "{{ folder }}"
+    state: directory
+    mode: "{{ ssl_folder_permissions | default('0700') }}"
+    owner: "{{ ssl_file_owner }}"
+    group: "{{ ssl_file_group | default(omit) }}"
+  loop:
+    - "{{ ssl_dest_dir }}"
+  loop_control:
+    loop_var: folder
+
+- name: CA-Files kopieren, um die Verschlüsselung zu entfernen
+  delegate_to: localhost
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ ansible_ca_files_directory }}"
+    mode: '0600'
+  loop:
+    - "{{ ssl_role_ca_cert_path }}"
+    - "{{ ssl_role_ca_key_path }}"
+
+- name: Privaten-Schlüssel generieren
+  delegate_to: "{{ ssl_selected_server }}"
+  run_once: true
+  community.crypto.openssl_privatekey:
+    path: "{{ ssl_dest_dir }}/{{ ssl_key_file_name }}"
+    type: RSA
+    format: "{{ ssl_private_key_format }}"
+    mode: "{{ ssl_file_permissions | default('0600') }}"
+    size: "{{ ssl_role_key_length }}"
+    owner: "{{ ssl_file_owner }}"
+    group: "{{ ssl_file_group | default(omit) }}"
+    force: true
+  register: privatekey
+
+- name: CSR generieren
+  delegate_to: "{{ ssl_selected_server }}"
+  run_once: true
+  community.crypto.openssl_csr_pipe:
+    privatekey_path: "{{ privatekey.filename }}"
+    country_name: "{{ ssl_role_country_name }}"
+    state_or_province_name: "{{ ssl_role_state_name }}"
+    locality_name: "{{ ssl_role_locality_name }}"
+    organization_name: "{{ ssl_role_organisation_name }}"
+    email_address: "{{ ssl_role_email }}"
+    common_name: "{{ ssl_common_name }}"
+    key_usage: "{{ ssl_key_usage_list }}"
+    extended_key_usage: "{{ ssl_extended_key_usage_list }}"
+    subject_alt_name: "{{ ssl_subject_alt_name_list }}"
+  register: csr
+
+- name: Zertifikat erstellen, was von der CA signiert wurde
+  delegate_to: localhost
+  community.crypto.x509_certificate_pipe:
+    csr_content: "{{ csr.csr }}"
+    provider: ownca
+    ownca_path: "{{ ssl_role_ca_cert_path }}"
+    ownca_privatekey_path: "{{ ssl_role_ca_key_path }}"
+    ownca_privatekey_passphrase: "{{ ssl_ca_passphrase }}"
+    ownca_not_after: "+{{ ssl_cert_validity_duration }}d" # valid for one year
+    ownca_not_before: "-1d"  # valid since yesterday
+  register: certificate
+
+- name: Einzel-Cert zum Server schreiben
+  ansible.builtin.include_tasks: copy_cert.yml
+
+- name: Fullchain-Cert zum Server schreiben
+  ansible.builtin.include_tasks: copy_fullchain.yml
+  when: ssl_output_as_fullchain is defined and ssl_output_as_fullchain == true

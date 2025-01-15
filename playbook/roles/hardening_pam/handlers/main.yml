@@ -1,0 +1,6 @@
+---
+
+# only needed for sssd role
+- name: Trigger sssd external
+  ansible.builtin.set_fact:
+    sssd_trigger_external: true

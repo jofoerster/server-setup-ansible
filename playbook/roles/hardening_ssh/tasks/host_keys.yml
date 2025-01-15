@@ -1,0 +1,51 @@
+---
+
+- name: Check if SSH host key files exist
+  ansible.builtin.stat:
+    path: "{{ hardening_ssh_hostkey_directory }}/ssh_host_{{ item }}_key"
+    get_mime: false
+    get_checksum: false
+    get_attributes: false
+  loop: "{{ hardening_ssh_hostkey_list }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+  register: ssh_hostkey_stat
+
+- name: Generate missing SSH host key files - rsa only
+  ansible.builtin.shell: |
+    ssh-keygen -t {{ item.item }} -b {{ hardening_ssh_rsa_key_size }} -f {{ hardening_ssh_hostkey_directory }}/ssh_host_{{ item.item }}_key -N ""
+  when:
+    - not item.stat.exists
+    - item.item == 'rsa'
+  ignore_errors: "{{ ansible_check_mode }}"
+  changed_when: false
+  loop: "{{ ssh_hostkey_stat.results }}"
+  no_log: true
+
+- name: Generate other missing SSH host key files
+  ansible.builtin.shell: |
+    ssh-keygen -t {{ item.item }} -f {{ hardening_ssh_hostkey_directory }}/ssh_host_{{ item.item }}_key -N ""
+  when:
+    - not item.stat.exists
+    - item.item != 'rsa'
+  ignore_errors: "{{ ansible_check_mode }}"
+  changed_when: false
+  loop: "{{ ssh_hostkey_stat.results }}"
+  no_log: true
+
+- name: Ensure SSH host private keys have right ownership and mode
+  ansible.builtin.file:
+    path: "{{ hardening_ssh_hostkey_directory }}/ssh_host_{{ item }}_key"
+    owner: root
+    group: root
+    mode: '0600'
+  ignore_errors: "{{ ansible_check_mode }}"
+  loop: "{{ hardening_ssh_hostkey_list }}"
+
+- name: Ensure SSH host public keys have right ownership and mode
+  ansible.builtin.file:
+    path: "{{ hardening_ssh_hostkey_directory }}/ssh_host_{{ item }}_key.pub"
+    owner: root
+    group: root
+    mode: '0644'
+  ignore_errors: "{{ ansible_check_mode }}"
+  loop: "{{ hardening_ssh_hostkey_list }}"

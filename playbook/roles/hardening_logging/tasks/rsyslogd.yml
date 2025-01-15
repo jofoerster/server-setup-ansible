@@ -1,0 +1,41 @@
+#---
+#
+#- name: Ensure rsyslog is installed
+#  ansible.builtin.package:
+#    name: "{{ hardening_logging_rsyslogd_package_name }}"
+#    state: present
+#
+#- name: Ensure rsyslogd path is present
+#  ansible.builtin.file:
+#    path: "{{ hardening_logging_rsyslogd_path }}"
+#    mode: '0755'
+#    owner: root
+#    group: root
+#    state: directory
+#
+#- name: Roll out hardening_logging rsyslog file
+#  ansible.builtin.template:
+#    src: "{{ role_path }}/templates/rsyslogd/21-hardening_logging.conf.j2"
+#    dest: "{{ hardening_logging_rsyslogd_path }}/21-hardening_logging.conf"
+#    mode: '0700'
+#    owner: root
+#    group: root
+#    force: true
+#  notify: Restart rsyslog
+#
+#- name: "Ensure local6 will not log to local files"
+#  ansible.builtin.lineinfile:
+#    path: "{{ hardening_logging_rsyslogd_conf_path }}"
+#    owner: root
+#    group: root
+#    mode: '0640'
+#    line: '*.*;auth,authpriv.none;local6.none  -/var/log/syslog'
+#    regexp: '^\*\.\*;auth.+\/var\/log\/syslog$'
+#  notify: Restart rsyslog
+#
+#- name: Ensure rsyslog is started and enabled
+#  ansible.builtin.service:
+#    name: rsyslog
+#    state: started
+#    enabled: true
+#  ignore_errors: "{{ ansible_check_mode }}"

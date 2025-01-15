@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# {{ ansible_managed }} - {{ template_destpath }}
+# Security relevant configuration files must have proper ownership and restrictied permission.
+
+{% raw %}
+### vars
+arr_files=('/boot/grub/grub.cfg' '/boot/grub2/grub.cfg' '/etc/*cron*' '/etc/passwd*' '/etc/group*' '/etc/shadow*' '/etc/gshadow*' '/etc/security/opasswd*' '/etc/shells')
+
+### functions
+check_root () {
+    if [[ "$(whoami)" != "root" ]]; then
+        echo "This script must be run as 'root'"
+        exit 1
+    fi
+}
+
+set_ownership () {
+    for pattern in "${arr_files[@]}"; do
+        for file in $pattern; do
+            if [[ -e "$file" ]]; then
+                echo "Changing ownership of: $file"
+                chown root:root "$file"
+            fi
+        done
+    done
+}
+
+set_permissions () {
+    for pattern in "${arr_files[@]}"; do
+        for file in $pattern; do
+            if [[ -e "$file" ]]; then
+                if [[ "$file" == *"cron"* && "$file" != *"cron.service"* ]]; then
+                    echo "Changing permissions of: $file to 700"
+                    chmod -R 700 "$file"
+                elif [[ "$file" == *"grub"* || "$file" == *"opasswd"* ]]; then
+                    echo "Changing permissions of: $file to 600"
+                    chmod 600 "$file"
+                elif [[ "$file" == *"/etc/passwd"* || "$file" == *"group"* || "$file" == *"shells"* ]]; then
+                    echo "Changing permissions of: $file to 644"
+                    chmod 644 "$file"
+                elif [[ "$file" == *"shadow"* ]]; then
+                    echo "Changing permissions of: $file to 640"
+                    chmod 640 "$file"
+                fi
+            fi
+        done
+    done
+}
+
+### main
+check_root
+set_ownership
+set_permissions
+{% endraw %}

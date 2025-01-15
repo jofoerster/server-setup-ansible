@@ -1,0 +1,18 @@
+- name: Postgres APT-Key hinzufügen
+  ansible.builtin.get_url:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    dest: "{{ keyrings_dir }}/postgres.asc"
+    mode: '0644'
+
+- name: Postgres APT-Repo hinzufügen
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64 signed-by={{ keyrings_dir }}/postgres.asc] https://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+    state: present
+    update_cache: yes
+
+- name: Postgres-Client installieren
+  ansible.builtin.apt:
+    pkg:
+      - postgresql-client-common
+      - "postgresql-client-{{ postgres_version }}"
+    state: present

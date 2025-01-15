@@ -1,0 +1,62 @@
+# {{ ansible_managed }} - {{ template_destpath }}
+
+[sssd]
+services = nss, pam, ssh
+config_file_version = 2
+reconnection_retries = 3
+
+domains = {{ domain }}
+
+[domain/{{ domain }}]
+case_sensitive = False
+
+# Service defaults
+cache_credentials = True
+account_cache_expiration = {{ sssd_online_account_cached_expiration_days }}
+enumerate = False
+
+# provider info
+id_provider = ldap
+auth_provider = ldap
+chpass_provider = ldap
+
+# timout values
+ldap_search_timeout = {{ sssd_search_timeouts }}
+ldap_network_timeout = {{ sssd_search_timeouts }}
+
+# activate ID mapping AD SID -> Linux User ID
+ldap_id_mapping = true
+
+# connection details
+ldap_uri = ldaps://{{ ad_full_domain }}
+ldap_search_base = {{ sssd_ldap_search_base }}
+ldap_user_ssh_public_key = sshPublicKey
+
+ad_use_ldaps = True
+ldap_default_bind_dn = {{ sssd_ldap_bind_dn }}
+ldap_default_authtok_type = password
+ldap_default_authtok= {{ sssd_ldap_pw }}
+entry_cache_timeout = {{ sssd_entry_cache_timeout }}
+
+# ldap params
+ldap_schema = AD
+ldap_referrals = false
+
+[nss]
+
+# exclude system users to be looked up
+filter_users = {{ sssd_filter_users }}
+filter_groups = {{ sssd_filter_groups }}
+reconnection_retries = 3
+override_shell = /bin/bash
+override_homedir = /home/%u
+
+[pam]
+offline_credentials_expiration = {{ sssd_offline_account_cached_expiration_days }}
+offline_failed_login_attempts = {{ sssd_offline_failed_login_attempts }}
+
+[sudo]
+
+[autofs]
+
+[ssh]

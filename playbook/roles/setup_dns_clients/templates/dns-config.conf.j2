@@ -1,0 +1,14 @@
+[Resolve]
+DNS={{ nameserver1_server_address }}#{{ nameserver1_full_domain }} {{ nameserver2_server_address }}#{{ nameserver2_full_domain }}
+#FallbackDNS=
+Domains={{ domain }}
+DNSSEC=yes
+DNSOverTLS=yes
+MulticastDNS=no
+LLMNR=no
+Cache=no-negative
+CacheFromLocalhost=no
+#DNSStubListener=no
+#DNSStubListenerExtra=
+ReadEtcHosts=yes
+#ResolveUnicastSingleLabel=no

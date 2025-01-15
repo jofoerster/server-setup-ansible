@@ -1,0 +1,224 @@
+---
+
+### Req 71 Remove legacy entries '+' in /etc/{passwd,group,shadow}
+- name: "Req-71 gather /etc/passwd entries."  # noqa: name[template]
+  ansible.builtin.getent:
+    database: passwd
+  register: hardening_linux_passwd
+
+- name: "Req-71 display affected passwd entries with: +."  # noqa: name[template]
+  ansible.builtin.debug:
+    msg: "{{ item.key }}"
+  loop: "{{ hardening_linux_passwd.ansible_facts.getent_passwd | dict2items }}"
+  when:
+    - "'+' in item.key"
+    - not hardening_linux_use_cc
+
+- name: "Req-71 Remove legacy entries in /etc/passwd."  # noqa: name[template]
+  ansible.builtin.lineinfile:
+    path: /etc/passwd
+    regexp: '^{{ item.key | regex_escape }}.*'
+    state: absent
+  loop: "{{ hardening_linux_passwd.ansible_facts.getent_passwd | dict2items }}"
+  when:
+    - "'+' in item.key"
+    - hardening_linux_use_cc
+
+- name: "Req-71 gather /etc/group entries."  # noqa: name[template]
+  ansible.builtin.getent:
+    database: group
+  register: hardening_linux_group
+
+- name: "Req-71 display affected entries with: +"  # noqa: name[template]
+  ansible.builtin.debug:
+    msg: "{{ item.key }}"
+  loop: "{{ hardening_linux_group.ansible_facts.getent_group | dict2items }}"
+  when:
+    - "'+' in item.key"
+    - not hardening_linux_use_cc
+
+- name: "Req-71 Remove legacy entries in /etc/group."  # noqa: name[template]
+  ansible.builtin.lineinfile:
+    path: /etc/group
+    regexp: '^{{ item.key | regex_escape }}.*'
+    state: absent
+  loop: "{{ hardening_linux_group.ansible_facts.getent_group | dict2items }}"
+  when:
+    - "'+' in item.key"
+    - hardening_linux_use_cc
+
+- name: "Req-71 gather /etc/shadow entries."  # noqa: name[template]
+  ansible.builtin.getent:
+    database: shadow
+  register: hardening_linux_shadow
+  no_log: true
+
+- name: "Req-71 display affected entries with:+."  # noqa: name[template]
+  ansible.builtin.debug:
+    msg: "{{ item.key }}"
+  loop: "{{ hardening_linux_shadow.ansible_facts.getent_shadow | dict2items }}"
+  when:
+    - "'+' in item.key"
+    - not hardening_linux_use_cc
+  no_log: true
+
+- name: "Req-71 Remove legacy entries in /etc/shadow"  # noqa: name[template]
+  ansible.builtin.lineinfile:
+    path: /etc/shadow
+    regexp: '^{{ item.key | regex_escape }}.*'
+    state: absent
+  loop: "{{ hardening_linux_shadow.ansible_facts.getent_shadow | dict2items }}"
+  when:
+    - "'+' in item.key"
+    - hardening_linux_use_cc
+  no_log: true
+
+
+### 72 A user's home directory must be owned by the user and have mode 750 or more restrictive
+- name: "Req-72 gather home directories"  # noqa: name[template]
+  ansible.builtin.find:
+    paths: "{{ hardening_linux_cc_home_path }}"
+    file_type: directory
+    depth: 1
+  register: home_directories
+
+- name: "Req-72 A users home directory must be owned by the user and have mode 750 or more restrictive"  # noqa: name[template]
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: "{{ item.path | basename }}"
+    mode: '0750'
+    state: directory
+  loop: "{{ home_directories.files }}"
+  when:
+    - hardening_linux_use_cc
+    - (item.mode | int) > 750
+# Remark: the check with '(item.mode | int) > 750' is not optimal but works in that case.
+# As we can't compare properly octal values in ansible, we need to use int.
+# This causes to transform the 'proper' access permission '1750' (int: 1750) to be greater than '0750' (int: 750).
+# In any case it's not intended to use the sticky bit for home directories
+
+
+### Req 73 Root must be the only GID 0 account
+- name: "Req-73 Default group for the root account must be GID 0."  # noqa: name[template]
+  ansible.builtin.assert:
+    that: hardening_linux_passwd.ansible_facts.getent_passwd.root.2 == "0"
+    fail_msg: "WARNING: user root has not the GID: 0 as primary group."
+    quiet: true
+
+### Req 74 Root must be the only UID 0 account
+- name: "Req-74 Root must be the only UID 0 account."  # noqa: name[template]
+  ansible.builtin.assert:
+    that: (item.value.1 == "0" and item.key == "root") or (item.value.1 != "0" and item.key != "root")
+    fail_msg: "WARNING: user {{ item.key }} has the UID: 0."
+    quiet: true
+  loop: "{{ hardening_linux_passwd.ansible_facts.getent_passwd | dict2items }}"
+
+
+### Req 75 All groups in /etc/passwd must exist in /etc/group.
+- name: "Req-75 Create a new dictionary with 3rd items from passwd_entries."  # noqa: name[template]
+  ansible.builtin.set_fact:
+    hardening_linux_passwd_id: "{{ hardening_linux_passwd_id | default({}) | combine({item: hardening_linux_passwd.ansible_facts.getent_passwd[item][2]}) }}"
+  loop: "{{ hardening_linux_passwd.ansible_facts.getent_passwd.keys() | list }}"
+  vars:
+    hardening_linux_passwd_id: {}
+  no_log: true
+
+- name: "Req-75 Create a new dictionary with 2nd items from group_entries."  # noqa: name[template]
+  ansible.builtin.set_fact:
+    hardening_linux_group_id: "{{ hardening_linux_group_id | default({}) | combine({item: hardening_linux_group.ansible_facts.getent_group[item][1]}) }}"
+  loop: "{{ hardening_linux_group.ansible_facts.getent_group.keys() | list }}"
+  vars:
+    hardening_linux_group_id: {}
+  no_log: true
+
+- name: "Req-75 All groups in /etc/passwd must exist in /etc/group."  # noqa: name[template]
+  ansible.builtin.assert:
+    that:
+      - item.value in hardening_linux_group_id.values()
+    fail_msg: "User {{ item.key }} with primary gid {{ item.value }} does not exist in /etc/group."
+  loop: "{{ hardening_linux_passwd_id | dict2items }}"
+
+
+### Req 76 No duplicate UIDs and GIDs must exist
+# filtering out nobody / nogroup to avoid duplicates entries on intention
+- name: "Req-76 determine UID duplicates in /etc/passwd."  # noqa: name[template]
+  ansible.builtin.shell: |
+    grep -v 65534 /etc/passwd | awk -F: '{print $3}' | grep -v -E '^0$' | sort | uniq -c | awk '{print $1}' | sort -u
+  register: hardening_linux_uid_duplicates
+  ignore_errors: "{{ ansible_check_mode }}"
+  changed_when: false
+
+- name: "Req-76 Check for duplicate UID entries"  # noqa: name[template]
+  ansible.builtin.fail:
+    msg: "Duplicates found in /etc/passwd."
+  when: hardening_linux_uid_duplicates.stdout_lines | length != 1
+  ignore_errors: "{{ ansible_check_mode }}"
+
+# filtering out nobody / nogroup to avoid duplicates entries on intention
+- name: "Req-76 determine GID duplicates in /etc/group."  # noqa: name[template]
+  ansible.builtin.shell: |
+    grep -v 65534 /etc/group | awk -F: '{print $3}' | grep -v -E '^0$' | sort | uniq -c | awk '{print $1}' | sort -u
+  register: hardening_linux_gid_duplicates
+  ignore_errors: "{{ ansible_check_mode }}"
+  changed_when: false
+
+- name: "Req-76 Check for duplicate GID entries"  # noqa: name[template]
+  ansible.builtin.fail:
+    msg: "Duplicates found in /etc/group."
+  when: hardening_linux_gid_duplicates.stdout_lines | length != 1
+  ignore_errors: "{{ ansible_check_mode }}"
+
+### Req 77 No duplicate user or group names must exist
+- name: "Req-77 determine user name duplicates in /etc/passwd."  # noqa: name[template]
+  ansible.builtin.shell: |
+    awk -F: '{print $1}' /etc/passwd  | grep -v -E '^0$' | sort | uniq -c | awk '{print $1}' | sort -u
+  register: hardening_linux_user_duplicates
+  ignore_errors: "{{ ansible_check_mode }}"
+  changed_when: false
+
+- name: "Req-77 Check for duplicate user entries"  # noqa: name[template]
+  ansible.builtin.fail:
+    msg: "Duplicates found in /etc/passwd."
+  when: hardening_linux_user_duplicates.stdout_lines | length != 1
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: "Req-77 determine group name duplicates in /etc/group."  # noqa: name[template]
+  ansible.builtin.shell: |
+    awk -F: '{print $1}' /etc/group  | grep -v -E '^0$' | sort | uniq -c | awk '{print $1}' | sort -u
+  register: hardening_linux_group_duplicates
+  ignore_errors: "{{ ansible_check_mode }}"
+  changed_when: false
+
+- name: "Req-77 Check for duplicate group entries"  # noqa: name[template]
+  ansible.builtin.fail:
+    msg: "Duplicates found in /etc/group."
+  when: hardening_linux_group_duplicates.stdout_lines | length != 1
+  ignore_errors: "{{ ansible_check_mode }}"
+
+
+### Req 78 The shadow group must be empty (only Debian-based Linux distributions).
+- name: "Req-78 The shadow group must be empty (only Debian-based Linux distributions)."  # noqa: name[template]
+  ansible.builtin.fail:
+    msg: "Shadow contains members: {{ hardening_linux_group.ansible_facts.getent_group.shadow[2] }}"
+  when:
+    - ansible_os_family == "Debian"
+    - hardening_linux_group.ansible_facts.getent_group.shadow[2] != ""
+  ignore_errors: "{{ ansible_check_mode }}"
+
+
+# - name: "Req-79 No files & directories without assigned user/group must exist."  # noqa: name[template]
+#   ansible.builtin.debug:
+#     msg: "requirement is causing too many time during processing and can be executed manually: {{ hardening_linux_script_path }}"
+
+- name: "Req-80 Rollout script"  # noqa: name[template]
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "{{ hardening_linux_script_path }}/{{ item | basename | regex_replace('.j2$', '') }}"
+    owner: root
+    group: root
+    mode: '0755'
+  with_fileglob:
+    - "{{ role_path }}/templates/compliance_check/*.j2"
+
+- name: "Req-80 Permissions of sec. relevant config files must have the distribution def. values or more restrictive."
+  ansible.builtin.shell: "{{ hardening_linux_script_path }}/req_80.sh"

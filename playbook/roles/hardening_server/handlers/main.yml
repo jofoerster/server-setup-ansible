@@ -1,0 +1,11 @@
+---
+# handlers file for hardening_linux
+
+- name: Update grub
+  ansible.builtin.shell: |
+    {{ hardening_linux_grub_command }}
+  ignore_errors: "{{ ansible_check_mode }}"
+  changed_when: false
+
+- name: Server neustarten
+  ansible.builtin.reboot:

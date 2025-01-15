@@ -1,0 +1,7 @@
+---
+- name: Setup Ansible User
+  hosts: all # set hosts to a host or group of the inventory
+  gather_facts: false
+  become: true
+  roles:
+    - setup_ansible_user

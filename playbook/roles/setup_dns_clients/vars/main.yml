@@ -1,0 +1,5 @@
+dns_client_conf_name: "dns-config.conf"
+dns_client_resolved_path: "/etc/systemd/resolved.conf.d"
+
+dns_systemd_generated_path: "/run/systemd/resolve/stub-resolv.conf"
+dns_resolve_conf_path: "/etc/resolv.conf"

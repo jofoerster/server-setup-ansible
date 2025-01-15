@@ -1,0 +1,67 @@
+---
+
+# pre checks
+- name: "Check if ssh-keys are defined"
+  ansible.builtin.assert:
+    that:
+      - emergency_user_ssh_key_list
+    fail_msg: "please set a value for 'emergency_user_ssh_key_list'"
+
+# create group
+- name: "Ensure group of emergency user exists"
+  ansible.builtin.group:
+    name: "{{ emergency_group_name }}"
+    gid: "{{ emergency_group_gid | default(omit) }}"
+    state: present
+
+# create user
+- name: "Ensure emergency user exists"
+  ansible.builtin.user:
+    name: "{{ emergency_user_name }}"
+    comment: "ansible managed emergency_user"
+    group: "{{ emergency_group_name }}"
+    groups: "{{ ssh_group }}"
+    shell: "{{ emergency_user_shell }}"
+    expires: -1
+    password_expire_min: 0
+    password_expire_max: -1
+    password: "{{ emergency_user_password_hash | default(omit) }}"
+    uid: "{{ emergency_user_uid | default(omit) }}"
+
+# ssh key
+- name: "Ensure ssh key directory exists"
+  ansible.builtin.file:
+    path: "{{ emergency_user_ssh_key_dir }}"
+    state: directory
+    mode: "{{ ssh_key_dir_permission }}"
+    owner: "{{ ssh_key_owner }}"
+    group: "{{ ssh_key_group }}"
+
+- name: "Ensure authorized_keys file is present"
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/ssh_public_keys.j2"
+    dest: "{{ emergency_user_ssh_key_dir }}/{{ emergency_user_ssh_key_filename }}"
+    owner: "{{ ssh_key_owner }}"
+    group: "{{ ssh_key_group }}"
+    mode: "{{ ssh_key_permission }}"
+
+
+# sudo permission
+- name: "Ensure 'sudo' is installed"
+  ansible.builtin.package:
+    name: sudo
+    state: present
+
+- name: "Change 'nopassword' flag if password is set"
+  ansible.builtin.set_fact:
+    emergency_user_sudo_nopasswd: false
+  when: emergency_user_password_hash is defined
+
+- name: "Allow the emergency user to sudo ALL"
+  community.general.sudoers:
+    name: "{{ emergency_user_sudo_file_name }}"
+    state: present
+    user: "{{ emergency_user_name }}"
+    runas: root
+    commands: ALL
+    nopassword: "{{ emergency_user_sudo_nopasswd }}"

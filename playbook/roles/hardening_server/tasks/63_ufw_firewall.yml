@@ -1,0 +1,46 @@
+---
+
+- name: Standardmäßig jeglichen Incoming-Traffic verbieten
+  community.general.ufw:
+    policy: deny
+    direction: incoming
+
+- name: Standardmäßig jeglichen Forward-Traffic verbieten
+  community.general.ufw:
+    policy: deny
+    direction: routed
+
+- name: Standardmäßig jeglichen Outgoing-Traffic erlauben
+  community.general.ufw:
+    policy: allow
+    direction: outgoing
+
+- name: SSH Verbindungen erlauben
+  community.general.ufw:
+    direction: in
+    rule: allow
+    port: 22
+    protocol: tcp
+    interface: "{{ server_network_interface_name }}"
+    from_ip: "{{ item }}"
+  loop:
+    - "{{ whole_internal_network }}"
+    - "{{ hardening_linux_vpn_full_network }}"
+    - 127.0.0.1
+
+- name: UFW Regeln so anpassen, sodass die forwarded Ports in Docker nicht automatisch für alle verfügbar sind/nicht an der Firewall vorbeigehen
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/after.rules
+    marker: "# {mark} UFW AND DOCKER"
+    block: "{{ hardening_linux_ufw_docker_fix }}"
+
+- name: IPV6 in UFW Firewall auf den korrekten Status setzen
+  ansible.builtin.lineinfile:
+    path: /etc/default/ufw
+    regexp: '^IPV6='
+    line: "IPV6={{ 'yes' if hardening_linux_ipv6_enabled else 'no' }}"
+    state: present
+
+- name: Firewall einschalten
+  community.general.ufw:
+    state: enabled

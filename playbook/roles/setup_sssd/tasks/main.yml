@@ -1,0 +1,83 @@
+- name: Benötigte Pakete installieren
+  ansible.builtin.apt:
+    pkg: "{{ sssd_packages}}"
+    state: present
+
+- name: SSSD Config erstellen
+  ansible.builtin.template:
+    src: "{{ sssd_conf_file }}.j2"
+    dest: "/etc/sssd/{{ sssd_conf_file }}"
+    mode: '0600'
+    owner: 'root'
+  register: sssdconf
+
+- name: Nsswitch-Conf Datei ausrollen
+  ansible.builtin.template:
+    src: "{{ sssd_nsswitch_conf_file }}.j2"
+    dest: "/etc/{{ sssd_nsswitch_conf_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Tool für die SSH-Public-Keys rausladen
+  ansible.builtin.template:
+    src: "{{ sssd_ssh_tool }}.j2"
+    dest: "/usr/local/bin/{{ sssd_ssh_tool }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+
+- name: Sichergehen, dass Services eingeschaltet sind
+  ansible.builtin.service:
+    enabled: true
+    name: "{{ item }}"
+  loop: "{{ sssd_service_list }}"
+
+- name: Services neustarten
+  ansible.builtin.service:
+    state: restarted
+    name: "{{ item }}"
+  loop: "{{ sssd_service_list }}"
+
+- name: Sichergehen, dass Berechtigungen für SSS Socket korrekt sind
+  ansible.builtin.file:
+    path: /var/lib/sss
+    mode: o+rx
+
+- name: Pakete für Apparmor installieren
+  ansible.builtin.package:
+    name: "{{ sssd_apparmor_package_list }}"
+    state: present
+
+- name: Sichergehen, dass SSSD mit Apparmor läuft
+  ansible.builtin.shell: |
+    /usr/sbin/aa-enforce /etc/apparmor.d/usr.sbin.sssd
+  changed_when: false
+
+- name: SSSD-Cache leeren, wenn sich die SSSD-Config geändert hat
+  ansible.builtin.command:
+    cmd: sss_cache -E
+  when: sssdconf.changed
+  ignore_errors: yes
+
+- name: SSSD-Admin Usern Sudo erlauben
+  community.general.sudoers:
+    name: "{{ sssd_sudo_file_name }}"
+    state: present
+    group: "{{ ssh_ldap_group }}"
+    runas: root
+    commands: ALL
+    nopassword: false
+
+- name: SSSD-Developer Usern Sudo erlauben
+  community.general.sudoers:
+    name: "52_sssd_{{ item }}_group_su2root"
+    state: present
+    group: "{{ item }}"
+    runas: root
+    commands: ALL
+    nopassword: false
+  when: ssh_specific_ldap_groups is defined and ssh_specific_ldap_groups | length > 0
+  loop: "{{ ssh_specific_ldap_groups is string | ternary([ssh_specific_ldap_groups], ssh_specific_ldap_groups) }}"
+

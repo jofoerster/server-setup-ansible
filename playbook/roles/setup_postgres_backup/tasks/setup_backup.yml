@@ -1,0 +1,39 @@
+- name: Erstelle benötigte Ordner
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0600'
+  loop:
+    - "{{ postgres_backup_dir }}"
+    - "{{ postgres_backup_certs_dir }}"
+
+- name: SSL-Client Cert für Backup-User generieren
+  ansible.builtin.include_role:
+    name: generate_ssl_certs
+  vars:
+    ssl_selected_server: "{{ server_host_name }}"
+    ssl_common_name: "{{ postgres_backup_user }}"
+    ssl_dest_dir: "{{ postgres_backup_certs_dir }}"
+    ssl_cert_validity_duration: "{{ client_cert_validity }}"
+    ssl_file_owner: "root"
+    ssl_key_usage_list: "{{ ssl_client_cert_key_usage_list }}"
+    ssl_extended_key_usage_list:
+      - clientAuth
+    ssl_subject_alt_name_list:
+      - "DNS:{{ postgres_backup_user }}"
+  loop: "{{ ansible_play_hosts }}"
+  loop_control:
+    loop_var: server_host_name
+
+
+- name: Cronjob anlegen, der täglich die DB backuped und alte Backups löscht
+  ansible.builtin.cron:
+    name: "{{ item.name }}"
+    cron_file: "{{ postgres_backup_name }}"
+    user: "root"
+    special_time: "daily"
+    job: "{{ item.job }}"
+  loop:
+    - { job: "pg_dump \"host={{ database_full_domain }} port={{ postgres_server_port }} user={{ postgres_backup_user }} dbname={{ postgres_db }} sslmode=verify-full sslcert={{ postgres_backup_certs_dir }}/{{ ssl_cert_file_name }} sslkey={{ postgres_backup_certs_dir }}/{{ ssl_key_file_name }} sslrootcert={{ ssl_ca_directory }}/{{ ssl_ca_file_name }}\" -F tar -f {{ postgres_backup_dir }}/{{ 'db_backend_backup_$(date +\\%Y_\\%m_\\%d).tar' }}", name: "Backup-Backend DB" }
+    - { job: "pg_dump \"host={{ database_full_domain }} port={{ postgres_server_port }} user={{ postgres_backup_user }} dbname={{ postgres_keycloak_db }} sslmode=verify-full sslcert={{ postgres_backup_certs_dir }}/{{ ssl_cert_file_name }} sslkey={{ postgres_backup_certs_dir }}/{{ ssl_key_file_name }} sslrootcert={{ ssl_ca_directory }}/{{ ssl_ca_file_name }}\" -F tar -f {{ postgres_backup_dir }}/{{ 'db_keycloak_backup_$(date +\\%Y_\\%m_\\%d).tar' }}", name: "Backup-Keycloak DB" }
+    - { job: "find {{ postgres_backup_dir }}/ -mindepth 1 -mtime +{{ postgres_backup_retention_days }} -type f -delete", name: "Remove old files" }

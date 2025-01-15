@@ -1,0 +1,37 @@
+- name: Wazuh APT-Key hinzufügen
+  ansible.builtin.get_url:
+    url: https://packages.wazuh.com/key/GPG-KEY-WAZUH
+    dest: "{{ keyrings_dir }}/{{ ids_key_name }}"
+    mode: '0644'
+
+- name: Wazuh APT-Repo hinzufügen
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by={{ keyrings_dir }}/{{ ids_key_name }}] https://packages.wazuh.com/4.x/apt/ stable main"
+    state: present
+    update_cache: yes
+
+- name: Wazuh-Agent installieren
+  ansible.builtin.apt:
+    pkg: "wazuh-agent"
+    state: present
+
+#- name: Wazuh Reg Passwort ablegen
+#  ansible.builtin.copy:
+#    content: "{{ ids_registration_passwort }}"
+#    dest: "/var/ossec/etc/authd.pass"
+#    mode: '640'
+#    owner: 'root'
+
+- name: Agent-Config kopieren
+  ansible.builtin.template:
+    src: "{{ ids_conf_file_name }}.j2"
+    dest: "/var/ossec/etc/{{ ids_conf_file_name }}"
+    mode: '0640'
+    owner: 'root'
+
+- name: Wazuh Agent neustarten
+  ansible.builtin.service:
+    name: wazuh-agent
+    daemon_reload: true
+    state: restarted
+    enabled: yes

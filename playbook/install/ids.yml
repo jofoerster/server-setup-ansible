@@ -1,0 +1,27 @@
+---
+- name: IDS Vorraussetzungen schaffen
+  hosts: ids
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Firewall Regeln hinzufügen
+      community.general.ufw:
+        rule: allow
+        direction: in
+        protocol: "tcp"
+        port: "{{ item.port }}"
+        interface: "{{ server_network_interface_name }}"
+        from_ip: "{{ item.from_ip }}"
+      loop:
+        - { port: "1514", from_ip: "{{ server_internal_network }}" }
+        - { port: "1515", from_ip: "{{ server_internal_network }}" }
+        - { port: "1516", from_ip: "{{ server_internal_network }}" }
+        - { port: "9200", from_ip: "{{ server_internal_network }}" }
+        - { port: "9300", from_ip: "{{ server_internal_network }}" }
+        - { port: "55000", from_ip: "{{ server_internal_network }}" }
+        # GUI muss auch sonst erreichbar sein
+        - { port: "443", from_ip: "{{ whole_internal_network }}" }
+
+    - name: Firewall Regeln neuladen
+      community.general.ufw:
+        state: reloaded

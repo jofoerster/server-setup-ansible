@@ -1,0 +1,13 @@
+---
+ssl_role_ca_cert_path: "{{ ansible_ca_files_directory }}/{{ ssl_ca_file_name }}"
+ssl_role_ca_key_path: "{{ ansible_ca_files_directory }}/ca.key"
+
+ssl_role_key_length: 4096
+ssl_private_key_format: "pkcs8"
+# Prüft auf 30 Tage
+ssl_role_cert_validity_check: 2592000
+ssl_role_country_name: DE
+ssl_role_state_name: Bavaria
+ssl_role_locality_name: Munich
+ssl_role_organisation_name: Wasser.EU
+ssl_role_email: "support@{{ domain }}"

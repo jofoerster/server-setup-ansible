@@ -1,0 +1,178 @@
+################################################################################
+# {{ ansible_managed }} - {{ template_destpath }}
+################################################################################
+
+### AddressFamily to be used
+AddressFamily {{ hardening_ssh_addressfamily }}
+
+### IP addresses where sshd is listening on
+ListenAddress 127.0.0.1
+{% if global_ssh_interface_list %}
+# Additionally added Interfaces
+{% for interface in global_ssh_interface_list %}
+ListenAddress {{ ansible_facts[interface]['ipv4']['address'] }}        # {{ interface }}
+{% if hardening_ssh_use_secondaries %}
+{% if ansible_facts[interface]['ipv4_secondaries'] is defined %}
+{% for secondary in ansible_facts[interface]['ipv4_secondaries'] %}
+ListenAddress {{ secondary.address }}        # {{ interface }} (secondary IP)
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if hardening_ssh_service_ip_list %}
+{% for service_ip in hardening_ssh_service_ip_list %}
+ListenAddress {{ service_ip }}
+{% endfor %}
+{% endif %}
+
+### Define the host key file for SSH server
+{% for hostkey in hardening_ssh_hostkey_list %}
+HostKey {{ hardening_ssh_hostkey_directory }}/ssh_host_{{ hostkey }}_key
+{% endfor %}
+
+### Specify the folder containing authorized public keys per user for SSH authentication
+AuthorizedKeysFile {{ hardening_ssh_authorizedkeysfile }}
+
+### Enable or disable TCP keep-alive for SSH connections
+TCPKeepAlive {{ hardening_ssh_tcpkeepalive }}
+
+{% if ansible_facts['os_family'] == 'RedHat' and ansible_facts['distribution_major_version'] == '7' %}
+###  Privilege separation enhances security by SSH server process running with reduced privileges
+UsePrivilegeSeparation sandbox
+{% endif %}
+
+### GSSAPI options
+GSSAPIAuthentication {{ hardening_ssh_gssapiauthentication }}
+GSSAPICleanupCredentials {{ hardening_ssh_gssapicleanupcredentials }}
+
+### DNS resolution of client address
+UseDNS {{ hardening_ssh_usedns }}
+
+### Enable or disable printing the message of the day (MOTD) during SSH login
+PrintMotd {{ hardening_ssh_printmotd }}
+
+### Enable or disable printing the last login information during SSH login
+PrintLastLog {{ hardening_ssh_printlastlog }}
+
+### Specify the path to a banner file to display before the login prompt
+Banner {{ hardening_ssh_banner }}
+
+### Control whether X11 forwarding uses the localhost as the display server (X11 deactivated within Req-22)
+X11UseLocalhost {{ hardening_ssh_x11uselocalhost }}
+
+### Proper time for SSH idle timeout
+ClientAliveInterval {{ hardening_ssh_clientaliveinterval }}
+ClientAliveCountMax {{ hardening_ssh_clientalivecountmax }}
+
+################################################################################
+### Req-1 The SSH protocol version 2 must be used
+Protocol {{ hardening_ssh_protocol }}
+
+### Req-2 SSH MaxSessions must be set to "10:30:100" or less
+{% if hardening_ssh_maxstartups %}
+MaxStartups {{ hardening_ssh_maxstartups }}
+{% endif %}
+
+### Req-3 Only approved key exchange algorithms must be used
+KexAlgorithms {{ hardening_ssh_kexalgorithms }}
+
+### Req-4 Only approved ciphers algorithms must be used
+Ciphers {{ hardening_ssh_ciphers }}
+
+### Req-5 Only approved MAC algorithms must be used
+MACs {{ hardening_ssh_macs }}
+
+### Req-6 Only approved Host Key Algorithm must be used
+HostKeyAlgorithms {{ hardening_ssh_hostkeyalgorithms }}
+
+### Req-7 SSH logging must be enabled
+SyslogFacility {{ hardening_ssh_syslogfacility }}
+LogLevel {{ hardening_ssh_loglevel }}
+
+### Req-8 SSH LoginGraceTime must be set to 120s or less
+LoginGraceTime {{ hardening_ssh_logingracetime }}
+
+### Req-9 SSH MaxAuthTries must be set to 6 or less
+MaxAuthTries {{ hardening_ssh_maxauthtries }}
+
+### Req-10 SSH root login must be disabled
+PermitRootLogin {{ hardening_ssh_permitrootlogin }}
+
+### Req-11 SSH strict mode must be enabled
+StrictModes {{ hardening_ssh_strictmodes }}
+
+### Req-12 SSH user authentication must be done with public keys
+AuthenticationMethods {{ hardening_ssh_authenticationmethods }}
+PubkeyAuthentication {{ hardening_ssh_pubkeyauthentication }}
+
+### Req-13 SSH password authentication must be disabled
+PasswordAuthentication {{ hardening_ssh_passwordauthentication }}
+KbdInteractiveAuthentication {{ hardening_ssh_kbdinteractiveauthentication }}
+ChallengeResponseAuthentication {{ hardening_ssh_challengeresponseauthentication }}
+UsePAM {{ hardening_ssh_usepam }}
+
+### Req-14 SSH IgnoreRhosts must be enabled
+IgnoreRhosts {{ hardening_ssh_ignorerhosts }}
+
+### Req-15 SSH HostbasedAuthentication must be disabled
+HostbasedAuthentication {{ hardening_ssh_hostbasedauthentication }}
+
+### Req-16 The usage of the SSH service must be restricted to dedicated groups or users
+AllowGroups root {{ hardening_ssh_sshd_group }}{# {% if hardening_ssh_additional_allowgroups_list is defined and hardening_ssh_additional_allowgroups_list %} {{ hardening_ssh_additional_allowgroups_list | join(' ') }}{% endif %}#}
+
+### Req-17 SSH MaxSessions must be set to 10 or less
+MaxSessions {{ hardening_ssh_maxsessions }}
+
+### Req-18 SSH tunnel devices must be disabled
+PermitTunnel {{ hardening_ssh_permittunnel }}
+
+### Req-19 SSH TCP port forwarding must be disabled
+AllowTcpForwarding {{ hardening_ssh_allowtcpforwarding }}
+
+### Req-20 SSH agent forwarding must be disabled
+AllowAgentForwarding {{ hardening_ssh_allowagentforwarding }}
+
+### Req-21 SSH gateway ports must be disabled
+GatewayPorts {{ hardening_ssh_gatewayports }}
+
+### Req-22 SSH X11 forwarding must be disabled
+X11Forwarding {{ hardening_ssh_x11forwarding }}
+
+### Req-23 SSH PermitUserEnvironment must be disabled
+PermitUserEnvironment {{ hardening_ssh_permituserenvironment }}
+
+### Req-24 SSH PermitEmptyPasswords must be disabled
+PermitEmptyPasswords {{ hardening_ssh_permitemptypasswords }}
+
+### Req-28 SSH moduli equal to or greater 3071 must be used
+# will be done within file: /etc/ssh/moduli
+
+
+################################################################################
+### sshd config Match blocks ALWAYS at the end of file
+
+### Req-25 If SFTP is activated, internal server of OpenSSH must be used
+Subsystem sftp {{ hardening_ssh_sftp_subsystem }}
+{# {% if hardening_ssh_enable_sftp %} # commented out due to set no default #}
+{% if hardening_ssh_sftp_match_group %}
+# These lines must appear at the *end* of sshd_config
+Match Group {{ hardening_ssh_sftp_match_group }}
+        ChrootDirectory {{ hardening_ssh_sftp_chrootdirectory }}
+        X11Forwarding {{ hardening_ssh_sftp_x11forwarding | default(hardening_ssh_x11forwarding) }}
+        AllowTcpForwarding {{ hardening_ssh_sftp_allowtcpforwarding | default(hardening_ssh_allowtcpforwarding) }}
+        AllowAgentForwarding {{ hardening_ssh_sftp_allowagentforwarding | default(hardening_ssh_allowagentforwarding) }}
+        PasswordAuthentication {{ hardening_ssh_sftp_passwordauthentication | default(hardening_ssh_passwordauthentication) }}
+        PermitRootLogin {{ hardening_ssh_sftp_permitrootlogin | default(hardening_ssh_permitrootlogin) }}
+        ForceCommand {{ hardening_ssh_sftp_forcecommand }}
+{% endif %}
+
+{% if hardening_ssh_additional_allowgroups_list is defined and hardening_ssh_additional_allowgroups_list %}
+{% for item in hardening_ssh_additional_allowgroups_list %}
+Match Group {{ item }}
+    AllowGroups {{ item }}
+    AuthorizedKeysCommand {{ hardening_ssh_match_group_authorizedkeyscommand }}
+    AuthorizedKeysCommandUser {{ hardening_ssh_match_group_authorizedkeyscommanduser }}
+
+{% endfor %}
+{% endif %}

@@ -1,0 +1,67 @@
+- name: Erstelle benötigte Ordner
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ frontend_user_id }}"
+    group: "{{ frontend_group_id }}"
+  loop:
+    - "{{ frontend_directory }}"
+
+- name: CA-File kopieren
+  ansible.builtin.copy:
+    src: "{{ ssl_ca_directory }}/{{ ssl_ca_file_name }}"
+    dest: "{{ frontend_directory }}"
+    remote_src: yes
+    owner: "{{ frontend_user_id }}"
+    group: "{{ frontend_group_id }}"
+    mode: '0600'
+
+- name: Bestehenden Container löschen, falls einer existiert
+  community.docker.docker_container:
+    name: "{{ frontend_container_name }}"
+    state: absent
+  ignore_errors: yes
+
+- name: Bestehende Images löschen
+  community.docker.docker_image:
+    name: "{{ frontend_full_image_path }}"
+    state: "absent"
+    force_absent: "true"
+
+- name: Log in to GitLab Docker registry using Access Key
+  community.docker.docker_login:
+    state: "present"
+    registry_url: "{{ CI_REGISTRY }}"
+    username: "{{ CI_REGISTRY_USER }}"
+    password: "{{ CI_JOB_TOKEN }}"
+
+- name: Image neu pullen
+  community.docker.docker_image:
+    name: "{{ frontend_full_image_path }}:{{ FRONTEND_DEPLOY_VERSION }}"
+    state: "present"
+    source: "pull"
+
+- name: Frontend-Container deployen
+  community.docker.docker_container:
+    name: "{{ frontend_container_name }}"
+    image: "{{ frontend_full_image_path }}:{{ FRONTEND_DEPLOY_VERSION }}"
+    state: started
+    restart: true
+    restart_policy: unless-stopped
+    network_mode: "{{ docker_network_name }}"
+    volumes:
+      - "{{ frontend_directory}}:{{ frontend_directory}}"
+    env:
+      NODE_EXTRA_CA_CERTS: "{{ frontend_directory}}/{{ ssl_ca_file_name }}"
+      KEYCLOAK_CLIENTID: "{{ frontend_keycloak_client_id }}"
+      KEYCLOAK_CLIENTSECRET: "{{ frontend_keycloak_client_secret }}"
+      KEYCLOAK_URL: "{{ frontend_keycloak_url }}"
+      NEXTAUTH_URL: "{{ frontend_nextauth_url }}"
+      NEXTAUTH_SECRET: "{{ frontend_nextauth_secret }}"
+      BACKEND_URL: "{{ frontend_backend_url }}"
+
+- name: Log out from GitLab
+  community.docker.docker_login:
+    registry_url: "{{ CI_REGISTRY }}"
+    state: "absent"

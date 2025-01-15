@@ -1,0 +1,4 @@
+# {{ ansible_managed }} - {{ template_destpath }}
+{% for ssh_pubkey in emergency_user_ssh_key_list %}
+{{ ssh_pubkey }}
+{% endfor %}
